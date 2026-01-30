@@ -1,6 +1,14 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Sheet,
   SheetContent,
@@ -8,10 +16,49 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { AlertTriangle, TrendingUp, MapPin, Clock, Shield } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 
-// Static mock incidents
-const mockIncidents = [
+// Mock regions
+const REGIONS = [
+  { value: "all", label: "All Regions" },
+  { value: "west-africa", label: "West Africa" },
+  { value: "east-africa", label: "East Africa" },
+  { value: "southern-africa", label: "Southern Africa" },
+  { value: "central-africa", label: "Central Africa" },
+  { value: "north-africa", label: "North Africa" },
+];
+
+// Mock threat categories
+const THREAT_CATEGORIES = [
+  { id: "kidnapping", label: "Kidnapping" },
+  { id: "terrorism", label: "Terrorism" },
+  { id: "robbery", label: "Armed Robbery" },
+  { id: "protest", label: "Protest / Civil Unrest" },
+  { id: "political", label: "Political Instability" },
+  { id: "piracy", label: "Piracy / Maritime" },
+];
+
+type IncidentStatus = "ai" | "reviewed" | "confirmed";
+
+interface Incident {
+  id: string;
+  title: string;
+  datetime: string;
+  location: string;
+  severity: number;
+  confidence: number;
+  status: IncidentStatus;
+  category: string;
+  region: string;
+  trend?: string;
+  summary?: string;
+  sources?: string[];
+  analyst?: string;
+}
+
+// Static mock incidents with extended data
+const mockIncidents: Incident[] = [
   {
     id: "1",
     title: "Armed Robbery Ring Targeting Commercial Vehicles",
@@ -19,7 +66,12 @@ const mockIncidents = [
     location: "Lagos, Nigeria",
     severity: 4,
     confidence: 87,
-    status: "confirmed" as const,
+    status: "confirmed",
+    category: "robbery",
+    region: "west-africa",
+    summary: "Multiple coordinated attacks on commercial vehicles along the Lagos-Ibadan expressway. Criminal group using roadblocks and armed personnel. Three incidents in past 48 hours.",
+    sources: ["Local Police Report", "Field Agent LAGOS-07", "Media Monitoring"],
+    analyst: "J. Okonkwo",
   },
   {
     id: "2",
@@ -28,7 +80,12 @@ const mockIncidents = [
     location: "Port Harcourt, Nigeria",
     severity: 5,
     confidence: 72,
-    status: "reviewed" as const,
+    status: "reviewed",
+    category: "kidnapping",
+    region: "west-africa",
+    summary: "Intelligence suggests targeted kidnapping operation planned against expatriate workers in the Trans-Amadi industrial area. Source reliability: B2.",
+    sources: ["HUMINT Source PH-12", "Pattern Analysis"],
+    analyst: "M. Adeyemi",
   },
   {
     id: "3",
@@ -37,7 +94,12 @@ const mockIncidents = [
     location: "Nairobi, Kenya",
     severity: 3,
     confidence: 94,
-    status: "confirmed" as const,
+    status: "confirmed",
+    category: "protest",
+    region: "east-africa",
+    summary: "Labor union protests blocking Mombasa Road affecting cargo movement from port. Expected to continue for 24-48 hours pending negotiations.",
+    sources: ["Ground Team NBO", "Traffic Monitoring", "Social Media Intel"],
+    analyst: "P. Kimani",
   },
   {
     id: "4",
@@ -46,7 +108,12 @@ const mockIncidents = [
     location: "Mombasa, Kenya",
     severity: 2,
     confidence: 65,
-    status: "ai" as const,
+    status: "ai",
+    category: "robbery",
+    region: "east-africa",
+    summary: "AI-flagged pattern of unusual vehicle movements near port storage facilities. Requires human verification.",
+    sources: ["CCTV Analysis", "Pattern Recognition AI"],
+    analyst: "Pending Review",
   },
   {
     id: "5",
@@ -55,11 +122,16 @@ const mockIncidents = [
     location: "Johannesburg, South Africa",
     severity: 4,
     confidence: 91,
-    status: "reviewed" as const,
+    status: "reviewed",
+    category: "political",
+    region: "southern-africa",
+    summary: "Post-election tensions escalating in multiple townships. Isolated incidents of property damage reported. Security forces on heightened alert.",
+    sources: ["Embassy Cables", "Local Media", "Field Team JNB"],
+    analyst: "R. van der Berg",
   },
 ];
 
-const trendingIncidents = [
+const trendingIncidents: Incident[] = [
   {
     id: "6",
     title: "Escalating Militia Activity in Northern Region",
@@ -67,8 +139,13 @@ const trendingIncidents = [
     location: "Kano, Nigeria",
     severity: 5,
     confidence: 78,
-    status: "ai" as const,
+    status: "ai",
     trend: "+12%",
+    category: "terrorism",
+    region: "west-africa",
+    summary: "Increased movement patterns detected consistent with militant group operations. Cross-referencing with known faction territories.",
+    sources: ["Satellite Imagery", "SIGINT", "Regional Partners"],
+    analyst: "Pending Review",
   },
   {
     id: "7",
@@ -77,8 +154,13 @@ const trendingIncidents = [
     location: "Gulf of Guinea",
     severity: 4,
     confidence: 83,
-    status: "reviewed" as const,
+    status: "reviewed",
     trend: "+8%",
+    category: "piracy",
+    region: "west-africa",
+    summary: "Maritime patrols report increased small vessel activity. Two attempted boardings in past week. Recommend enhanced escort protocols.",
+    sources: ["IMB Report", "Navy Liaison", "Shipping Intel Network"],
+    analyst: "C. Mensah",
   },
   {
     id: "8",
@@ -87,12 +169,17 @@ const trendingIncidents = [
     location: "Addis Ababa, Ethiopia",
     severity: 3,
     confidence: 69,
-    status: "ai" as const,
+    status: "ai",
     trend: "+5%",
+    category: "political",
+    region: "east-africa",
+    summary: "Social media analysis indicates rising tensions ahead of AU summit. Protest activity possible near diplomatic quarter.",
+    sources: ["Social Media Analysis", "Open Source Intel"],
+    analyst: "Pending Review",
   },
 ];
 
-const myRegionIncidents = [
+const myRegionIncidents: Incident[] = [
   {
     id: "9",
     title: "Road Blockade by Local Groups",
@@ -100,7 +187,12 @@ const myRegionIncidents = [
     location: "Accra, Ghana",
     severity: 2,
     confidence: 88,
-    status: "confirmed" as const,
+    status: "confirmed",
+    category: "protest",
+    region: "west-africa",
+    summary: "Community groups blocking access road near Tema junction. Dispute over local infrastructure project. Police negotiating.",
+    sources: ["Ground Team ACC", "Local Contacts"],
+    analyst: "K. Asante",
   },
   {
     id: "10",
@@ -109,9 +201,17 @@ const myRegionIncidents = [
     location: "Tema, Ghana",
     severity: 3,
     confidence: 76,
-    status: "reviewed" as const,
+    status: "reviewed",
+    category: "robbery",
+    region: "west-africa",
+    summary: "Series of break-ins targeting industrial warehouses. Organized group suspected. Enhanced security measures recommended.",
+    sources: ["Police Report", "Security Contractor"],
+    analyst: "K. Asante",
   },
 ];
+
+// Combine all incidents for lookup
+const allIncidents = [...mockIncidents, ...trendingIncidents, ...myRegionIncidents];
 
 function getSeverityColor(severity: number) {
   switch (severity) {
@@ -128,7 +228,17 @@ function getSeverityColor(severity: number) {
   }
 }
 
-function getStatusColor(status: "ai" | "reviewed" | "confirmed") {
+function getSeverityLabel(severity: number) {
+  switch (severity) {
+    case 5: return "CRITICAL";
+    case 4: return "HIGH";
+    case 3: return "MODERATE";
+    case 2: return "LOW";
+    default: return "INFO";
+  }
+}
+
+function getStatusColor(status: IncidentStatus) {
   switch (status) {
     case "confirmed":
       return "bg-emerald-600/20 text-emerald-400 border-emerald-600/50";
@@ -139,7 +249,7 @@ function getStatusColor(status: "ai" | "reviewed" | "confirmed") {
   }
 }
 
-function getStatusLabel(status: "ai" | "reviewed" | "confirmed") {
+function getStatusLabel(status: IncidentStatus) {
   switch (status) {
     case "confirmed":
       return "CONFIRMED";
@@ -151,16 +261,7 @@ function getStatusLabel(status: "ai" | "reviewed" | "confirmed") {
 }
 
 interface IncidentCardProps {
-  incident: {
-    id: string;
-    title: string;
-    datetime: string;
-    location: string;
-    severity: number;
-    confidence: number;
-    status: "ai" | "reviewed" | "confirmed";
-    trend?: string;
-  };
+  incident: Incident;
   onClick: () => void;
   showTrend?: boolean;
 }
@@ -209,14 +310,140 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
   );
 }
 
+function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
+  if (!incident) return null;
+
+  return (
+    <div className="space-y-4 pt-4">
+      {/* Title & Severity */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <Badge className={`${getSeverityColor(incident.severity)} text-[10px] font-mono`}>
+            {getSeverityLabel(incident.severity)}
+          </Badge>
+          <Badge variant="outline" className={`${getStatusColor(incident.status)} text-[10px] font-mono`}>
+            {getStatusLabel(incident.status)}
+          </Badge>
+        </div>
+        <h3 className="text-sm font-mono font-medium text-foreground">
+          {incident.title}
+        </h3>
+      </div>
+
+      <Separator />
+
+      {/* Meta Info */}
+      <div className="grid grid-cols-2 gap-3 text-[10px] font-mono">
+        <div>
+          <div className="text-muted-foreground mb-1">LOCATION</div>
+          <div className="flex items-center gap-1 text-foreground">
+            <MapPin className="h-3 w-3" />
+            {incident.location}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground mb-1">TIMESTAMP</div>
+          <div className="flex items-center gap-1 text-foreground">
+            <Clock className="h-3 w-3" />
+            {incident.datetime}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground mb-1">CONFIDENCE</div>
+          <div className="text-foreground">{incident.confidence}%</div>
+        </div>
+        <div>
+          <div className="text-muted-foreground mb-1">ANALYST</div>
+          <div className="flex items-center gap-1 text-foreground">
+            <User className="h-3 w-3" />
+            {incident.analyst || "—"}
+          </div>
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Summary */}
+      <div>
+        <div className="text-[10px] font-mono text-muted-foreground mb-2 flex items-center gap-1">
+          <FileText className="h-3 w-3" />
+          INTELLIGENCE SUMMARY
+        </div>
+        <p className="text-xs font-mono text-foreground leading-relaxed">
+          {incident.summary || "No summary available."}
+        </p>
+      </div>
+
+      <Separator />
+
+      {/* Sources */}
+      <div>
+        <div className="text-[10px] font-mono text-muted-foreground mb-2">SOURCES</div>
+        <div className="space-y-1">
+          {incident.sources?.map((source, idx) => (
+            <div key={idx} className="text-[10px] font-mono text-foreground flex items-center gap-1">
+              <span className="text-muted-foreground">•</span>
+              {source}
+            </div>
+          )) || <div className="text-[10px] font-mono text-muted-foreground">No sources listed</div>}
+        </div>
+      </div>
+
+      <Separator />
+
+      {/* Actions placeholder */}
+      <div className="flex gap-2">
+        <button className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono py-2 px-3 rounded border border-border">
+          <ExternalLink className="h-3 w-3 inline mr-1" />
+          FULL REPORT
+        </button>
+        <button className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono py-2 px-3 rounded border border-primary/30">
+          ESCALATE
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function DailyBrief() {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [selectedIncident, setSelectedIncident] = useState<string | null>(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>(
+    THREAT_CATEGORIES.map(c => c.id) // All selected by default
+  );
 
   const handleIncidentClick = (id: string) => {
-    setSelectedIncident(id);
+    setSelectedIncidentId(id);
     setDrawerOpen(true);
   };
+
+  const handleCategoryToggle = (categoryId: string) => {
+    setSelectedCategories(prev =>
+      prev.includes(categoryId)
+        ? prev.filter(c => c !== categoryId)
+        : [...prev, categoryId]
+    );
+  };
+
+  // Filter incidents based on selections
+  const filteredTopThreats = useMemo(() => {
+    return mockIncidents.filter(incident => {
+      const regionMatch = selectedRegion === "all" || incident.region === selectedRegion;
+      const categoryMatch = selectedCategories.includes(incident.category);
+      return regionMatch && categoryMatch;
+    });
+  }, [selectedRegion, selectedCategories]);
+
+  const filteredTrending = useMemo(() => {
+    return trendingIncidents.filter(incident => {
+      const regionMatch = selectedRegion === "all" || incident.region === selectedRegion;
+      const categoryMatch = selectedCategories.includes(incident.category);
+      return regionMatch && categoryMatch;
+    });
+  }, [selectedRegion, selectedCategories]);
+
+  const selectedIncident = allIncidents.find(i => i.id === selectedIncidentId) || null;
 
   return (
     <div className="space-y-4">
@@ -241,6 +468,57 @@ export default function DailyBrief() {
         </div>
       </div>
 
+      {/* Filters Bar */}
+      <div className="flex flex-wrap items-center gap-4 p-3 bg-secondary/30 rounded border border-border">
+        <div className="flex items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <span className="text-[10px] font-mono text-muted-foreground">FILTERS:</span>
+        </div>
+        
+        {/* Region Dropdown */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground">REGION:</span>
+          <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+            <SelectTrigger className="w-[160px] h-7 text-[10px] font-mono bg-card border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border z-50">
+              {REGIONS.map(region => (
+                <SelectItem 
+                  key={region.value} 
+                  value={region.value}
+                  className="text-[10px] font-mono"
+                >
+                  {region.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Separator orientation="vertical" className="h-6" />
+
+        {/* Category Checkboxes */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <span className="text-[10px] font-mono text-muted-foreground">CATEGORIES:</span>
+          {THREAT_CATEGORIES.map(category => (
+            <label 
+              key={category.id} 
+              className="flex items-center gap-1.5 cursor-pointer"
+            >
+              <Checkbox
+                checked={selectedCategories.includes(category.id)}
+                onCheckedChange={() => handleCategoryToggle(category.id)}
+                className="h-3 w-3 border-muted-foreground/50"
+              />
+              <span className="text-[10px] font-mono text-foreground">
+                {category.label}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Top Threats Today - Takes 2 columns */}
@@ -250,20 +528,26 @@ export default function DailyBrief() {
               <AlertTriangle className="h-4 w-4 text-destructive" />
               TOP THREATS TODAY
               <Badge variant="outline" className="ml-auto text-[10px] font-mono">
-                {mockIncidents.length} ACTIVE
+                {filteredTopThreats.length} ACTIVE
               </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {mockIncidents.map((incident) => (
-                <IncidentCard
-                  key={incident.id}
-                  incident={incident}
-                  onClick={() => handleIncidentClick(incident.id)}
-                />
-              ))}
-            </div>
+            {filteredTopThreats.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {filteredTopThreats.map((incident) => (
+                  <IncidentCard
+                    key={incident.id}
+                    incident={incident}
+                    onClick={() => handleIncidentClick(incident.id)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[10px] font-mono text-muted-foreground">
+                No threats matching current filters
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -276,16 +560,22 @@ export default function DailyBrief() {
             </CardTitle>
           </CardHeader>
           <CardContent className="px-4 pb-4 pt-0">
-            <div className="space-y-2">
-              {trendingIncidents.map((incident) => (
-                <IncidentCard
-                  key={incident.id}
-                  incident={incident}
-                  onClick={() => handleIncidentClick(incident.id)}
-                  showTrend
-                />
-              ))}
-            </div>
+            {filteredTrending.length > 0 ? (
+              <div className="space-y-2">
+                {filteredTrending.map((incident) => (
+                  <IncidentCard
+                    key={incident.id}
+                    incident={incident}
+                    onClick={() => handleIncidentClick(incident.id)}
+                    showTrend
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-[10px] font-mono text-muted-foreground">
+                No escalations matching filters
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -322,21 +612,16 @@ export default function DailyBrief() {
 
       {/* Incident Detail Sheet */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="right" className="w-[400px] border-l border-border">
+        <SheetContent side="right" className="w-[420px] border-l border-border overflow-y-auto">
           <SheetHeader className="border-b border-border pb-4">
             <SheetTitle className="text-sm font-mono">
               INCIDENT DETAIL
             </SheetTitle>
             <SheetDescription className="text-[10px] font-mono">
-              ID: {selectedIncident || "—"}
+              ID: {selectedIncidentId || "—"} • {selectedIncident?.category?.toUpperCase() || "—"}
             </SheetDescription>
           </SheetHeader>
-          <div className="flex-1 p-4 flex items-center justify-center h-[calc(100%-80px)]">
-            <div className="text-center space-y-2">
-              <div className="text-muted-foreground text-xs font-mono">[INCIDENT_DETAIL_PANEL]</div>
-              <div className="text-muted-foreground/50 text-[10px] font-mono">Placeholder content</div>
-            </div>
-          </div>
+          <IncidentDetailPanel incident={selectedIncident} />
         </SheetContent>
       </Sheet>
     </div>
