@@ -31,18 +31,18 @@ const HeroSection = () => {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left: Copy */}
           <div className="space-y-6">
-            <div className="inline-block px-3 py-1 rounded-full border border-border bg-secondary text-xs text-muted-foreground uppercase tracking-wider">
+            <div className="inline-block px-3 py-1 rounded-full border border-border bg-secondary text-xs text-muted-foreground uppercase tracking-wider animate-fade-in-up opacity-0 [animation-delay:0.1s] [animation-fill-mode:forwards]">
               Africa-Native Security OS
             </div>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight animate-fade-in-up opacity-0 [animation-delay:0.2s] [animation-fill-mode:forwards]">
               See the Threat Before<br />
               <span className="text-cyber">It Sees You</span>
             </h1>
-            <p className="text-lg text-muted-foreground max-w-lg">
+            <p className="text-lg text-muted-foreground max-w-lg animate-fade-in-up opacity-0 [animation-delay:0.35s] [animation-fill-mode:forwards]">
               Unified threat intelligence built for Africa's unique security landscape. 
               Real-time monitoring, predictive analytics, and actionable insights.
             </p>
-            <div className="flex flex-wrap gap-4">
+            <div className="flex flex-wrap gap-4 animate-fade-in-up opacity-0 [animation-delay:0.5s] [animation-fill-mode:forwards]">
               <button className="px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium">
                 Request Early Access
               </button>
