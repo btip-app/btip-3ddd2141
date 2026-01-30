@@ -14,13 +14,12 @@ import Auth from "./pages/Auth";
 
 // Dashboard
 import DashboardLayout from "./layouts/DashboardLayout";
-import Overview from "./pages/dashboard/Overview";
-import ThreatMap from "./pages/dashboard/ThreatMap";
 import DailyBrief from "./pages/dashboard/DailyBrief";
+import ThreatMap from "./pages/dashboard/ThreatMap";
+import Assets from "./pages/dashboard/Assets";
 import Alerts from "./pages/dashboard/Alerts";
-import ActivityLog from "./pages/dashboard/ActivityLog";
-import UserManagement from "./pages/dashboard/UserManagement";
-import DashboardSettings from "./pages/dashboard/Settings";
+import Copilot from "./pages/dashboard/Copilot";
+import Admin from "./pages/dashboard/Admin";
 
 const queryClient = new QueryClient();
 
@@ -38,13 +37,13 @@ const App = () => (
             
             {/* Protected Dashboard Routes */}
             <Route path="/dashboard" element={<DashboardLayout />}>
-              <Route index element={<Overview />} />
-              <Route path="map" element={<ThreatMap />} />
+              <Route index element={<DailyBrief />} />
               <Route path="brief" element={<DailyBrief />} />
+              <Route path="map" element={<ThreatMap />} />
+              <Route path="assets" element={<Assets />} />
               <Route path="alerts" element={<Alerts />} />
-              <Route path="activity" element={<ActivityLog />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="settings" element={<DashboardSettings />} />
+              <Route path="copilot" element={<Copilot />} />
+              <Route path="admin" element={<Admin />} />
             </Route>
             
             {/* 404 */}
