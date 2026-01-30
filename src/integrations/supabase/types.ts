@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      organizations: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -21,6 +45,7 @@ export type Database = {
           full_name: string | null
           id: string
           organization: string | null
+          organization_id: string | null
           updated_at: string
           user_id: string
         }
@@ -30,6 +55,7 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization?: string | null
+          organization_id?: string | null
           updated_at?: string
           user_id: string
         }
@@ -39,10 +65,19 @@ export type Database = {
           full_name?: string | null
           id?: string
           organization?: string | null
+          organization_id?: string | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -79,7 +114,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "analyst" | "operator" | "viewer"
+      app_role: "admin" | "analyst" | "operator" | "viewer" | "executive"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -207,7 +242,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "analyst", "operator", "viewer"],
+      app_role: ["admin", "analyst", "operator", "viewer", "executive"],
     },
   },
 } as const
