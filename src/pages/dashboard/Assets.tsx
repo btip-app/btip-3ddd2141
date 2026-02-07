@@ -39,6 +39,7 @@ import {
   MapPin,
   Eye,
   Trash2,
+  AlertTriangle,
 } from "lucide-react";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
@@ -98,7 +99,60 @@ const INITIAL_ROUTES: RouteData[] = [
   },
 ];
 
+// --- Mock Incidents (shared with Threat Map for proximity) ---
+
+interface Incident {
+  id: string;
+  lat: number;
+  lng: number;
+  title: string;
+  category: string;
+  severity: number;
+}
+
+const MOCK_INCIDENTS: Incident[] = [
+  { id: "i1", lat: 6.5244, lng: 3.3792, title: "Armed Robbery - Commercial Vehicles", category: "robbery", severity: 4 },
+  { id: "i2", lat: 4.8156, lng: 7.0498, title: "Kidnapping Threat - Industrial Zone", category: "kidnapping", severity: 5 },
+  { id: "i3", lat: 12.0022, lng: 8.5920, title: "Militia Activity Detected", category: "terrorism", severity: 5 },
+  { id: "i4", lat: 9.0765, lng: 7.3986, title: "Political Demonstration", category: "protest", severity: 2 },
+  { id: "i5", lat: 5.5560, lng: -0.1969, title: "Road Blockade by Local Groups", category: "protest", severity: 2 },
+  { id: "i6", lat: 6.1375, lng: 1.2123, title: "Port Security Breach Attempt", category: "robbery", severity: 3 },
+  { id: "i7", lat: 4.0511, lng: 9.7679, title: "Suspicious Vessel Activity", category: "piracy", severity: 3 },
+  { id: "i8", lat: 6.3350, lng: 5.6037, title: "Civil Unrest - Market Area", category: "protest", severity: 3 },
+  { id: "i9", lat: 6.4400, lng: 3.4100, title: "Carjacking Near Ikoyi", category: "robbery", severity: 4 },
+  { id: "i10", lat: 4.7500, lng: 7.0300, title: "Pipeline Vandalism Attempt", category: "terrorism", severity: 4 },
+  { id: "i11", lat: 7.8000, lng: 5.1000, title: "Highway Banditry Report", category: "robbery", severity: 3 },
+];
+
 // --- Helpers ---
+
+const PROXIMITY_RADIUS_KM = 10;
+
+/** Haversine distance in km between two lat/lng points */
+function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/** Minimum distance from a point to any segment of a route polyline */
+function distanceToRoute(lat: number, lng: number, route: RouteData): number {
+  const points = [
+    route.start,
+    ...route.checkpoints,
+    route.end,
+  ];
+  let minDist = Infinity;
+  for (const pt of points) {
+    const d = haversineKm(lat, lng, pt.lat, pt.lng);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
+}
 
 const ASSET_TYPE_META: Record<AssetType, { label: string; icon: typeof Building2; color: string }> = {
   office: { label: "Office / Facility", icon: Building2, color: "hsl(185, 85%, 50%)" },
@@ -169,6 +223,28 @@ export default function Assets() {
     () => routes.map(r => ({ id: r.id, geojson: getRouteGeoJSON(r) })),
     [routes]
   );
+
+  // Proximity: incidents near each asset
+  const assetProximity = useMemo(() => {
+    const map: Record<string, Incident[]> = {};
+    for (const asset of assets) {
+      map[asset.id] = MOCK_INCIDENTS.filter(
+        inc => haversineKm(asset.lat, asset.lng, inc.lat, inc.lng) <= PROXIMITY_RADIUS_KM
+      );
+    }
+    return map;
+  }, [assets]);
+
+  // Proximity: incidents near each route
+  const routeProximity = useMemo(() => {
+    const map: Record<string, Incident[]> = {};
+    for (const route of routes) {
+      map[route.id] = MOCK_INCIDENTS.filter(
+        inc => distanceToRoute(inc.lat, inc.lng, route) <= PROXIMITY_RADIUS_KM
+      );
+    }
+    return map;
+  }, [routes]);
 
   function handleSelectAsset(id: string) {
     setSelectedAssetId(id === selectedAssetId ? null : id);
@@ -280,6 +356,8 @@ export default function Assets() {
                     const meta = ASSET_TYPE_META[asset.type];
                     const Icon = meta.icon;
                     const isSelected = selectedAssetId === asset.id;
+                    const nearbyIncidents = assetProximity[asset.id] || [];
+                    const hasThreats = nearbyIncidents.length > 0;
                     return (
                       <TableRow
                         key={asset.id}
@@ -287,18 +365,33 @@ export default function Assets() {
                         onClick={() => handleSelectAsset(asset.id)}
                       >
                         <TableCell className="py-2 px-2">
-                          <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                          <div className="relative">
+                            <Icon className="h-3.5 w-3.5" style={{ color: meta.color }} />
+                            {hasThreats && (
+                              <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" />
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-[10px] font-mono text-foreground py-2">{asset.name}</TableCell>
+                        <TableCell className="text-[10px] font-mono text-foreground py-2">
+                          <div>{asset.name}</div>
+                          {hasThreats && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <AlertTriangle className="h-2.5 w-2.5 text-destructive" />
+                              <span className="text-[8px] text-destructive">{nearbyIncidents.length} incident{nearbyIncidents.length > 1 ? "s" : ""} nearby</span>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-[10px] font-mono text-muted-foreground py-2">{meta.label}</TableCell>
                         <TableCell className="py-2">
                           <div className="flex gap-1 flex-wrap">
-                            {asset.tags.slice(0, 2).map(tag => (
+                            {hasThreats && (
+                              <Badge variant="destructive" className="text-[8px] font-mono px-1 py-0">
+                                <AlertTriangle className="h-2 w-2 mr-0.5" />{nearbyIncidents.length}
+                              </Badge>
+                            )}
+                            {asset.tags.slice(0, hasThreats ? 1 : 2).map(tag => (
                               <Badge key={tag} variant="outline" className="text-[8px] font-mono px-1 py-0">{tag}</Badge>
                             ))}
-                            {asset.tags.length > 2 && (
-                              <span className="text-[8px] font-mono text-muted-foreground">+{asset.tags.length - 2}</span>
-                            )}
                           </div>
                         </TableCell>
                         <TableCell className="py-2 px-2">
@@ -339,6 +432,8 @@ export default function Assets() {
                 <TableBody>
                   {routes.map(route => {
                     const isSelected = selectedRouteId === route.id;
+                    const nearbyIncidents = routeProximity[route.id] || [];
+                    const hasThreats = nearbyIncidents.length > 0;
                     return (
                       <TableRow
                         key={route.id}
@@ -346,9 +441,22 @@ export default function Assets() {
                         onClick={() => handleSelectRoute(route.id)}
                       >
                         <TableCell className="py-2 px-2">
-                          <Route className="h-3.5 w-3.5" style={{ color: ASSET_TYPE_META.route.color }} />
+                          <div className="relative">
+                            <Route className="h-3.5 w-3.5" style={{ color: hasThreats ? "hsl(0, 70%, 50%)" : ASSET_TYPE_META.route.color }} />
+                            {hasThreats && (
+                              <div className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-destructive" />
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-[10px] font-mono text-foreground py-2">{route.name}</TableCell>
+                        <TableCell className="text-[10px] font-mono text-foreground py-2">
+                          <div>{route.name}</div>
+                          {hasThreats && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <AlertTriangle className="h-2.5 w-2.5 text-destructive" />
+                              <span className="text-[8px] text-destructive">{nearbyIncidents.length} incident{nearbyIncidents.length > 1 ? "s" : ""} nearby</span>
+                            </div>
+                          )}
+                        </TableCell>
                         <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
                           {route.start.label} → {route.end.label}
                           {route.checkpoints.length > 0 && (
@@ -357,6 +465,11 @@ export default function Assets() {
                         </TableCell>
                         <TableCell className="py-2 px-2">
                           <div className="flex gap-1">
+                            {hasThreats && (
+                              <Badge variant="destructive" className="text-[8px] font-mono px-1 py-0 mr-1">
+                                <AlertTriangle className="h-2 w-2 mr-0.5" />{nearbyIncidents.length}
+                              </Badge>
+                            )}
                             <Button
                               variant="ghost" size="icon"
                               className="h-6 w-6"
@@ -397,6 +510,8 @@ export default function Assets() {
             {assets.map(asset => {
               const meta = ASSET_TYPE_META[asset.type];
               const isSelected = selectedAssetId === asset.id;
+              const nearbyIncidents = assetProximity[asset.id] || [];
+              const hasThreats = nearbyIncidents.length > 0;
               return (
                 <Marker
                   key={asset.id}
@@ -405,36 +520,66 @@ export default function Assets() {
                   anchor="center"
                   onClick={(e) => { e.originalEvent.stopPropagation(); handleSelectAsset(asset.id); }}
                 >
-                  <div
-                    className={`cursor-pointer rounded-full flex items-center justify-center ${isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
-                    style={{
-                      width: isSelected ? 28 : 22,
-                      height: isSelected ? 28 : 22,
-                      backgroundColor: meta.color,
-                    }}
-                    title={asset.name}
-                  >
-                    <meta.icon className="text-background" style={{ width: isSelected ? 14 : 11, height: isSelected ? 14 : 11 }} />
+                  <div className="relative cursor-pointer" title={asset.name}>
+                    {/* Threat proximity ring */}
+                    {hasThreats && (
+                      <div
+                        className="absolute rounded-full border-2 border-destructive opacity-40"
+                        style={{
+                          width: 36,
+                          height: 36,
+                          top: "50%",
+                          left: "50%",
+                          transform: "translate(-50%, -50%)",
+                        }}
+                      />
+                    )}
+                    <div
+                      className={`rounded-full flex items-center justify-center ${isSelected ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : ""}`}
+                      style={{
+                        width: isSelected ? 28 : 22,
+                        height: isSelected ? 28 : 22,
+                        backgroundColor: meta.color,
+                      }}
+                    >
+                      <meta.icon className="text-background" style={{ width: isSelected ? 14 : 11, height: isSelected ? 14 : 11 }} />
+                    </div>
+                    {/* Threat count badge on map */}
+                    {hasThreats && (
+                      <div className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[7px] font-mono font-bold rounded-full w-3.5 h-3.5 flex items-center justify-center">
+                        {nearbyIncidents.length}
+                      </div>
+                    )}
                   </div>
                 </Marker>
               );
             })}
 
             {/* Route lines */}
-            {routeGeoJSONs.map(({ id, geojson }) => (
-              <Source key={id} id={`route-${id}`} type="geojson" data={geojson}>
-                <Layer
-                  id={`route-line-${id}`}
-                  type="line"
-                  paint={{
-                    "line-color": selectedRouteId === id ? "hsl(185, 85%, 50%)" : "hsl(145, 70%, 45%)",
-                    "line-width": selectedRouteId === id ? 4 : 2,
-                    "line-opacity": selectedRouteId === id ? 1 : 0.5,
-                    "line-dasharray": [2, 2],
-                  }}
-                />
-              </Source>
-            ))}
+            {routeGeoJSONs.map(({ id, geojson }) => {
+              const nearbyIncidents = routeProximity[id] || [];
+              const hasThreats = nearbyIncidents.length > 0;
+              const isSelected = selectedRouteId === id;
+              const lineColor = hasThreats
+                ? "hsl(0, 70%, 50%)"
+                : isSelected
+                  ? "hsl(185, 85%, 50%)"
+                  : "hsl(145, 70%, 45%)";
+              return (
+                <Source key={id} id={`route-${id}`} type="geojson" data={geojson}>
+                  <Layer
+                    id={`route-line-${id}`}
+                    type="line"
+                    paint={{
+                      "line-color": lineColor,
+                      "line-width": isSelected ? 4 : hasThreats ? 3 : 2,
+                      "line-opacity": isSelected || hasThreats ? 1 : 0.5,
+                      "line-dasharray": hasThreats ? [1, 0] : [2, 2],
+                    }}
+                  />
+                </Source>
+              );
+            })}
 
             {/* Route endpoint markers */}
             {routes.map(route => (
