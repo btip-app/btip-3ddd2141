@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import Map, { Marker, NavigationControl } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
@@ -59,7 +59,8 @@ const mockMarkers = [
     severity: 4,
     confidence: 87,
     category: "robbery",
-    datetime: "2026-01-30 06:45",
+    datetime: "2026-02-07 06:45",
+    source: "Field Agent Report #LA-0192",
   },
   {
     id: "2",
@@ -70,7 +71,8 @@ const mockMarkers = [
     severity: 5,
     confidence: 72,
     category: "kidnapping",
-    datetime: "2026-01-30 05:30",
+    datetime: "2026-02-07 05:30",
+    source: "SIGINT Intercept #PH-0087",
   },
   {
     id: "3",
@@ -81,7 +83,8 @@ const mockMarkers = [
     severity: 5,
     confidence: 78,
     category: "terrorism",
-    datetime: "2026-01-30 03:00",
+    datetime: "2026-02-07 03:00",
+    source: "Satellite Imagery Analysis",
   },
   {
     id: "4",
@@ -92,7 +95,8 @@ const mockMarkers = [
     severity: 2,
     confidence: 94,
     category: "protest",
-    datetime: "2026-01-29 14:00",
+    datetime: "2026-02-05 14:00",
+    source: "Open Source / Social Media",
   },
   {
     id: "5",
@@ -103,7 +107,8 @@ const mockMarkers = [
     severity: 2,
     confidence: 88,
     category: "protest",
-    datetime: "2026-01-30 07:00",
+    datetime: "2026-02-06 07:00",
+    source: "Partner Agency Brief",
   },
   {
     id: "6",
@@ -114,7 +119,8 @@ const mockMarkers = [
     severity: 3,
     confidence: 65,
     category: "robbery",
-    datetime: "2026-01-29 22:30",
+    datetime: "2026-01-20 22:30",
+    source: "Port Authority Notification",
   },
   {
     id: "7",
@@ -125,7 +131,8 @@ const mockMarkers = [
     severity: 3,
     confidence: 71,
     category: "piracy",
-    datetime: "2026-01-29 19:00",
+    datetime: "2026-01-15 19:00",
+    source: "Maritime Patrol Report",
   },
   {
     id: "8",
@@ -136,7 +143,8 @@ const mockMarkers = [
     severity: 3,
     confidence: 82,
     category: "protest",
-    datetime: "2026-01-29 16:45",
+    datetime: "2026-02-01 16:45",
+    source: "Local Security Contact",
   },
 ];
 
@@ -190,6 +198,7 @@ interface MarkerData {
   confidence: number;
   category: string;
   datetime: string;
+  source: string;
 }
 
 function ThreatMarker({ 
@@ -239,9 +248,8 @@ export default function ThreatMap() {
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   
-  // Filter states (UI only, no filtering logic)
   const [threatType, setThreatType] = useState("all");
-  const [timeWindow, setTimeWindow] = useState("24h");
+  const [timeWindow, setTimeWindow] = useState("30d");
   const [severityRange, setSeverityRange] = useState([1, 5]);
   const [confidenceRange, setConfidenceRange] = useState([0, 100]);
 
@@ -250,6 +258,26 @@ export default function ThreatMap() {
     longitude: 8.6753,
     zoom: 5.5,
   });
+
+  // Filter markers based on current filter state
+  const filteredMarkers = useMemo(() => {
+    const now = new Date("2026-02-07T12:00:00");
+    const windowMs: Record<string, number> = {
+      "24h": 24 * 60 * 60 * 1000,
+      "48h": 48 * 60 * 60 * 1000,
+      "7d": 7 * 24 * 60 * 60 * 1000,
+      "30d": 30 * 24 * 60 * 60 * 1000,
+    };
+    const cutoff = new Date(now.getTime() - (windowMs[timeWindow] || windowMs["30d"]));
+
+    return mockMarkers.filter(m => {
+      if (threatType !== "all" && m.category !== threatType) return false;
+      if (m.severity < severityRange[0] || m.severity > severityRange[1]) return false;
+      if (m.confidence < confidenceRange[0] || m.confidence > confidenceRange[1]) return false;
+      if (new Date(m.datetime) < cutoff) return false;
+      return true;
+    });
+  }, [threatType, timeWindow, severityRange, confidenceRange]);
 
   const handleMarkerClick = useCallback((marker: MarkerData) => {
     setSelectedMarker(marker);
@@ -355,7 +383,7 @@ export default function ThreatMap() {
           <div className="ml-auto flex items-center gap-2">
             <Badge variant="outline" className="text-[10px] font-mono">
               <Crosshair className="h-3 w-3 mr-1" />
-              {mockMarkers.length} INCIDENTS
+              {filteredMarkers.length} / {mockMarkers.length} INCIDENTS
             </Badge>
           </div>
         </div>
@@ -373,7 +401,7 @@ export default function ThreatMap() {
           <NavigationControl position="top-left" />
           
           {/* Render markers */}
-          {mockMarkers.map(marker => (
+          {filteredMarkers.map(marker => (
             <ThreatMarker
               key={marker.id}
               marker={marker}
@@ -477,9 +505,9 @@ export default function ThreatMap() {
                 </div>
 
                 <div>
-                  <div className="text-[10px] font-mono text-muted-foreground mb-2">SOURCES</div>
-                  <div className="bg-secondary/30 rounded p-3 text-[10px] font-mono text-muted-foreground">
-                    [SOURCES_PLACEHOLDER]
+                  <div className="text-[10px] font-mono text-muted-foreground mb-2">SOURCE</div>
+                  <div className="bg-secondary/30 rounded p-3 text-[10px] font-mono text-foreground">
+                    {selectedMarker.source}
                   </div>
                 </div>
 
