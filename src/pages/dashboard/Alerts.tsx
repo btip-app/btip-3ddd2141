@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -151,6 +152,65 @@ const INITIAL_WATCHLIST: WatchItem[] = [
   { id: "w7", name: "PHC → Bonny Island", type: "route", addedAt: "2026-01-22", incidentCount: 1 },
 ];
 
+// --- Simulated incoming events pool ---
+
+const SIMULATED_EVENTS: Omit<Alert, "id" | "timestamp" | "status">[] = [
+  {
+    type: "proximity",
+    title: "New incident near Lagos HQ",
+    description: "Suspicious surveillance activity reported 2.1km from Lagos HQ perimeter.",
+    relatedAsset: "Lagos HQ",
+    region: "Lagos",
+    severity: 3,
+  },
+  {
+    type: "severity_increase",
+    title: "Escalation — Niger Delta pipeline",
+    description: "Pipeline vandalism threat upgraded from severity 3 to 5 near PHC Refinery.",
+    relatedAsset: "PHC Refinery Complex",
+    region: "Rivers",
+    severity: 5,
+  },
+  {
+    type: "route_threat",
+    title: "Incident along PHC → Bonny route",
+    description: "Armed group sighting reported within 6km of PHC → Bonny Island corridor.",
+    relatedAsset: "PHC → Bonny Island",
+    region: "Rivers",
+    severity: 4,
+  },
+  {
+    type: "proximity",
+    title: "Activity near Exec Residence",
+    description: "Unknown vehicle loitering detected near Exec Residence - VI security zone.",
+    relatedAsset: "Exec Residence - VI",
+    region: "Lagos",
+    severity: 3,
+  },
+  {
+    type: "new_incident",
+    title: "New incident — Abuja region",
+    description: "Improvised roadblock reported on outskirts of Abuja near liaison office.",
+    relatedAsset: "Abuja Liaison Office",
+    region: "FCT",
+    severity: 3,
+  },
+  {
+    type: "severity_increase",
+    title: "Escalation — Lagos maritime zone",
+    description: "Piracy threat level increased in Lagos coastal waters, affecting port operations.",
+    relatedAsset: "Lagos HQ",
+    region: "Lagos",
+    severity: 4,
+  },
+];
+
+function formatNow() {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // --- Helpers ---
 
 const ALERT_TYPE_META: Record<AlertType, { label: string; icon: typeof AlertTriangle }> = {
@@ -190,6 +250,38 @@ export default function Alerts() {
   const [watchlist, setWatchlist] = useState<WatchItem[]>(INITIAL_WATCHLIST);
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [simulationActive, setSimulationActive] = useState(false);
+  const eventIndexRef = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const triggerNewAlert = useCallback(() => {
+    const eventTemplate = SIMULATED_EVENTS[eventIndexRef.current % SIMULATED_EVENTS.length];
+    eventIndexRef.current += 1;
+    const newAlert: Alert = {
+      ...eventTemplate,
+      id: `al-sim-${Date.now()}`,
+      timestamp: formatNow(),
+      status: "new",
+    };
+    setAlerts(prev => [newAlert, ...prev]);
+    toast.error(newAlert.title, {
+      description: newAlert.description,
+      duration: 5000,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (simulationActive) {
+      // Fire one immediately, then every 15–30s randomly
+      triggerNewAlert();
+      intervalRef.current = setInterval(() => {
+        triggerNewAlert();
+      }, 15000 + Math.random() * 15000);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [simulationActive, triggerNewAlert]);
 
   const filteredAlerts = alerts.filter(a => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
@@ -226,6 +318,15 @@ export default function Alerts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant={simulationActive ? "destructive" : "outline"}
+            className="text-[10px] font-mono h-7"
+            onClick={() => setSimulationActive(prev => !prev)}
+          >
+            <Radio className="h-3 w-3 mr-1" />
+            {simulationActive ? "LIVE FEED ON" : "SIMULATE FEED"}
+          </Button>
           <Badge variant={newCount > 0 ? "destructive" : "outline"} className="text-[10px] font-mono">
             <Bell className="h-3 w-3 mr-1" />
             {newCount} NEW
