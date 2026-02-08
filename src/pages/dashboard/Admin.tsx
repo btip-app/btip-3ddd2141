@@ -6,8 +6,10 @@ export default function Admin() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground text-xs font-mono">Loading...</div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
+        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
+          Verifying admin access
+        </div>
       </div>
     );
   }
