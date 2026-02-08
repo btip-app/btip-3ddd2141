@@ -25,7 +25,8 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
-import { AddRegionDialog, type MonitoredRegion } from "@/components/dashboard/AddRegionDialog";
+import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
+import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -456,11 +457,7 @@ export default function DailyBrief() {
   const { role, isExecutive } = useUserRole();
   const { log: auditLog } = useAuditLog();
   const [addRegionOpen, setAddRegionOpen] = useState(false);
-  const [monitoredRegions, setMonitoredRegions] = useState<MonitoredRegion[]>(() => {
-    const stored = localStorage.getItem('btip-regions-default');
-    if (stored) { try { return JSON.parse(stored); } catch { return []; } }
-    return [{ id: 'west-africa-ghana-all', region: 'west-africa', regionLabel: 'West Africa', country: 'ghana', countryLabel: 'Ghana' }];
-  });
+  const { regions: monitoredRegions, addRegion, removeRegion } = useMonitoredRegions();
 
   const handleExport = () => {
     auditLog("REPORT_EXPORT", "Daily Intelligence Brief");
@@ -755,13 +752,7 @@ export default function DailyBrief() {
       <AddRegionDialog
         open={addRegionOpen}
         onOpenChange={setAddRegionOpen}
-        onAdd={(r) => {
-          setMonitoredRegions(prev => {
-            const next = [...prev, r];
-            localStorage.setItem('btip-regions-default', JSON.stringify(next));
-            return next;
-          });
-        }}
+        onAdd={async (r) => { await addRegion(r); }}
         existing={monitoredRegions}
       />
 

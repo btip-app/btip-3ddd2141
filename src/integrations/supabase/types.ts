@@ -53,6 +53,42 @@ export type Database = {
         }
         Relationships: []
       }
+      monitored_regions: {
+        Row: {
+          country: string
+          country_label: string
+          created_at: string
+          id: string
+          region: string
+          region_label: string
+          subdivision: string | null
+          subdivision_label: string | null
+          user_id: string
+        }
+        Insert: {
+          country: string
+          country_label: string
+          created_at?: string
+          id?: string
+          region: string
+          region_label: string
+          subdivision?: string | null
+          subdivision_label?: string | null
+          user_id: string
+        }
+        Update: {
+          country?: string
+          country_label?: string
+          created_at?: string
+          id?: string
+          region?: string
+          region_label?: string
+          subdivision?: string | null
+          subdivision_label?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
