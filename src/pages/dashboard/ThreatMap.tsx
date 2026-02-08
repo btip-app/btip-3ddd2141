@@ -284,6 +284,16 @@ export default function ThreatMap() {
     setDrawerOpen(true);
   }, []);
 
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
+        <Target className="h-8 w-8 text-muted-foreground/30" />
+        <p className="text-xs font-mono text-muted-foreground">THREAT MAP UNAVAILABLE</p>
+        <p className="text-[10px] font-mono text-muted-foreground/60">Map token not configured. Contact system administrator.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Top Toolbar */}

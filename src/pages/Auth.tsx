@@ -72,17 +72,17 @@ export default function Auth() {
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Header */}
+         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Shield className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-bold tracking-tight">BTIP</span>
+            <span className="text-2xl font-mono font-bold tracking-tight">BTIP</span>
           </div>
-          <h1 className="text-xl font-semibold text-foreground">
-            {isLogin ? 'Sign in to your account' : 'Create your account'}
+          <h1 className="text-lg font-mono font-semibold text-foreground">
+            {isLogin ? 'Authenticate' : 'Request Access'}
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Threat Intelligence Platform
+          <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase tracking-wider">
+            Bastion Threat Intelligence Platform
           </p>
         </div>
 
@@ -91,33 +91,33 @@ export default function Auth() {
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name</Label>
+                <Label htmlFor="fullName" className="text-[10px] font-mono uppercase text-muted-foreground">Full Name</Label>
                 <Input
                   id="fullName"
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="Enter your name"
-                  className="bg-secondary border-border"
+                  className="bg-secondary border-border font-mono text-sm"
                 />
               </div>
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-[10px] font-mono uppercase text-muted-foreground">Email</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="operator@example.com"
+                placeholder="operator@organization.com"
                 required
-                className="bg-secondary border-border"
+                className="bg-secondary border-border font-mono text-sm"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-[10px] font-mono uppercase text-muted-foreground">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -125,12 +125,12 @@ export default function Auth() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="bg-secondary border-border"
+                className="bg-secondary border-border font-mono text-sm"
               />
             </div>
 
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-sm text-destructive">
+              <div className="flex items-center gap-2 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-[11px] font-mono text-destructive">
                 <AlertCircle className="h-4 w-4 flex-shrink-0" />
                 <span>{error}</span>
               </div>
@@ -138,10 +138,10 @@ export default function Auth() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full font-mono text-sm"
               disabled={loading}
             >
-              {loading ? 'Processing...' : isLogin ? 'Sign In' : 'Create Account'}
+              {loading ? 'Authenticating...' : isLogin ? 'Sign In' : 'Request Access'}
             </Button>
           </form>
 
@@ -152,9 +152,9 @@ export default function Auth() {
                 setIsLogin(!isLogin);
                 setError(null);
               }}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-[11px] font-mono text-muted-foreground hover:text-foreground transition-colors"
             >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+              {isLogin ? "Need access? Request an account" : 'Already have credentials? Sign in'}
             </button>
           </div>
         </div>

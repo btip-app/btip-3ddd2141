@@ -14,8 +14,11 @@ export function RoleGate({ allowed, children, fallback = 'redirect' }: RoleGateP
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-muted-foreground text-xs font-mono">Loading...</div>
+      <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
+        <Shield className="h-5 w-5 text-muted-foreground/30" />
+        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
+          Verifying access
+        </div>
       </div>
     );
   }

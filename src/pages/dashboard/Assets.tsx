@@ -307,6 +307,16 @@ export default function Assets() {
     if (selectedRouteId === id) setSelectedRouteId(null);
   }
 
+  if (!MAPBOX_TOKEN) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[calc(100vh-120px)] gap-3">
+        <ShieldAlert className="h-8 w-8 text-muted-foreground/30" />
+        <p className="text-xs font-mono text-muted-foreground">ASSETS MAP UNAVAILABLE</p>
+        <p className="text-[10px] font-mono text-muted-foreground/60">Map token not configured. Contact system administrator.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-[calc(100vh-120px)]">
       {/* Header */}
