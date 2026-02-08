@@ -41,6 +41,14 @@ import {
   Trash2,
   AlertTriangle,
 } from "lucide-react";
+import {
+  REGIONS as GEO_REGIONS,
+  getCountriesForRegion,
+  getSubdivisionsForCountry,
+  getSubdivisionTerm,
+  type Country,
+  type Subdivision,
+} from "@/data/geography";
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
@@ -55,6 +63,9 @@ interface Asset {
   lat: number;
   lng: number;
   tags: string[];
+  region?: string;
+  country?: string;
+  subdivision?: string;
 }
 
 interface RouteData {
@@ -64,17 +75,20 @@ interface RouteData {
   end: { lat: number; lng: number; label: string };
   checkpoints: { lat: number; lng: number; label: string }[];
   tags: string[];
+  region?: string;
+  country?: string;
+  subdivision?: string;
 }
 
 // --- Mock Data ---
 
 const INITIAL_ASSETS: Asset[] = [
-  { id: "a1", name: "Lagos HQ", type: "office", lat: 6.4541, lng: 3.3947, tags: ["primary", "executive"] },
-  { id: "a2", name: "Abuja Liaison Office", type: "office", lat: 9.0579, lng: 7.4951, tags: ["liaison"] },
-  { id: "a3", name: "Exec Residence - VI", type: "residence", lat: 6.4281, lng: 3.4219, tags: ["vip", "24hr-guard"] },
-  { id: "a4", name: "Bonny Island Terminal", type: "infrastructure", lat: 4.4244, lng: 7.1674, tags: ["lng", "critical"] },
-  { id: "a5", name: "PHC Refinery Complex", type: "infrastructure", lat: 4.7817, lng: 7.0134, tags: ["refinery", "critical"] },
-  { id: "a6", name: "Staff Housing - Lekki", type: "residence", lat: 6.4474, lng: 3.4734, tags: ["staff"] },
+  { id: "a1", name: "Lagos HQ", type: "office", lat: 6.4541, lng: 3.3947, tags: ["primary", "executive"], region: "west-africa", country: "nigeria", subdivision: "lagos" },
+  { id: "a2", name: "Abuja Liaison Office", type: "office", lat: 9.0579, lng: 7.4951, tags: ["liaison"], region: "west-africa", country: "nigeria", subdivision: "abuja-fct" },
+  { id: "a3", name: "Exec Residence - VI", type: "residence", lat: 6.4281, lng: 3.4219, tags: ["vip", "24hr-guard"], region: "west-africa", country: "nigeria", subdivision: "lagos" },
+  { id: "a4", name: "Bonny Island Terminal", type: "infrastructure", lat: 4.4244, lng: 7.1674, tags: ["lng", "critical"], region: "west-africa", country: "nigeria", subdivision: "rivers" },
+  { id: "a5", name: "PHC Refinery Complex", type: "infrastructure", lat: 4.7817, lng: 7.0134, tags: ["refinery", "critical"], region: "west-africa", country: "nigeria", subdivision: "rivers" },
+  { id: "a6", name: "Staff Housing - Lekki", type: "residence", lat: 6.4474, lng: 3.4734, tags: ["staff"], region: "west-africa", country: "nigeria", subdivision: "lagos" },
 ];
 
 const INITIAL_ROUTES: RouteData[] = [
@@ -88,6 +102,8 @@ const INITIAL_ROUTES: RouteData[] = [
       { lat: 8.4799, lng: 6.7300, label: "Lokoja Waypoint" },
     ],
     tags: ["primary", "exec-travel"],
+    region: "west-africa",
+    country: "nigeria",
   },
   {
     id: "r2",
@@ -96,6 +112,9 @@ const INITIAL_ROUTES: RouteData[] = [
     end: { lat: 4.4244, lng: 7.1674, label: "Bonny Terminal" },
     checkpoints: [],
     tags: ["logistics", "marine"],
+    region: "west-africa",
+    country: "nigeria",
+    subdivision: "rivers",
   },
 ];
 
@@ -161,6 +180,87 @@ const ASSET_TYPE_META: Record<AssetType, { label: string; icon: typeof Building2
   route: { label: "Route", icon: Route, color: "hsl(145, 70%, 45%)" },
 };
 
+/** Build a human-readable geo label from region/country/subdivision values */
+function geoLabel(item: { region?: string; country?: string; subdivision?: string }): string {
+  const parts: string[] = [];
+  if (item.subdivision) {
+    const subs = item.country ? getSubdivisionsForCountry(item.country) : [];
+    const sub = subs.find(s => s.value === item.subdivision);
+    if (sub) parts.push(sub.label);
+  }
+  if (item.country) {
+    const countries = item.region ? getCountriesForRegion(item.region) : GEO_REGIONS.flatMap(r => r.countries);
+    const c = countries.find(co => co.value === item.country);
+    if (c) parts.push(c.label);
+  }
+  return parts.join(", ") || "";
+}
+
+/** Reusable cascading geo selector block for dialogs */
+function GeoSelectors({
+  region, country, subdivision,
+  onRegionChange, onCountryChange, onSubdivisionChange,
+  countryOptions, subdivisionOptions, subdivisionLabel,
+}: {
+  region: string; country: string; subdivision: string;
+  onRegionChange: (v: string) => void;
+  onCountryChange: (v: string) => void;
+  onSubdivisionChange: (v: string) => void;
+  countryOptions: Country[];
+  subdivisionOptions: Subdivision[];
+  subdivisionLabel: string;
+}) {
+  return (
+    <>
+      <Separator />
+      <p className="text-[9px] font-mono text-muted-foreground">LOCATION</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <Label className="text-[10px] font-mono text-muted-foreground">REGION</Label>
+          <Select value={region} onValueChange={onRegionChange}>
+            <SelectTrigger className="mt-1 text-xs font-mono bg-secondary border-border">
+              <SelectValue placeholder="Select region" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              {GEO_REGIONS.map(r => (
+                <SelectItem key={r.value} value={r.value} className="text-xs font-mono">{r.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label className="text-[10px] font-mono text-muted-foreground">COUNTRY</Label>
+          <Select value={country} onValueChange={onCountryChange} disabled={!region}>
+            <SelectTrigger className="mt-1 text-xs font-mono bg-secondary border-border">
+              <SelectValue placeholder="Select country" />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              {countryOptions.map(c => (
+                <SelectItem key={c.value} value={c.value} className="text-xs font-mono">{c.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {country && subdivisionOptions.length > 0 && (
+        <div>
+          <Label className="text-[10px] font-mono text-muted-foreground">{subdivisionLabel.toUpperCase()}</Label>
+          <Select value={subdivision} onValueChange={onSubdivisionChange}>
+            <SelectTrigger className="mt-1 text-xs font-mono bg-secondary border-border">
+              <SelectValue placeholder={`Select ${subdivisionLabel.toLowerCase()}`} />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              {subdivisionOptions.map(s => (
+                <SelectItem key={s.value} value={s.value} className="text-xs font-mono">{s.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+    </>
+  );
+}
+
 function getRouteGeoJSON(route: RouteData) {
   const coords = [
     [route.start.lng, route.start.lat],
@@ -191,6 +291,9 @@ export default function Assets() {
   const [newLat, setNewLat] = useState("");
   const [newLng, setNewLng] = useState("");
   const [newTags, setNewTags] = useState("");
+  const [newRegion, setNewRegion] = useState("");
+  const [newCountry, setNewCountry] = useState("");
+  const [newSubdivision, setNewSubdivision] = useState("");
 
   // Add route form state
   const [newRouteName, setNewRouteName] = useState("");
@@ -201,6 +304,19 @@ export default function Assets() {
   const [newRouteEndLat, setNewRouteEndLat] = useState("");
   const [newRouteEndLng, setNewRouteEndLng] = useState("");
   const [newRouteTags, setNewRouteTags] = useState("");
+  const [newRouteRegion, setNewRouteRegion] = useState("");
+  const [newRouteCountry, setNewRouteCountry] = useState("");
+  const [newRouteSubdivision, setNewRouteSubdivision] = useState("");
+
+  // Derived geo options for asset form
+  const newCountryOptions = useMemo(() => newRegion ? getCountriesForRegion(newRegion) : [], [newRegion]);
+  const newSubdivisionOptions = useMemo(() => newCountry ? getSubdivisionsForCountry(newCountry) : [], [newCountry]);
+  const newSubdivisionLabel = useMemo(() => newCountry ? getSubdivisionTerm(newCountry) : "Subdivision", [newCountry]);
+
+  // Derived geo options for route form
+  const newRouteCountryOptions = useMemo(() => newRouteRegion ? getCountriesForRegion(newRouteRegion) : [], [newRouteRegion]);
+  const newRouteSubdivisionOptions = useMemo(() => newRouteCountry ? getSubdivisionsForCountry(newRouteCountry) : [], [newRouteCountry]);
+  const newRouteSubdivisionLabel = useMemo(() => newRouteCountry ? getSubdivisionTerm(newRouteCountry) : "Subdivision", [newRouteCountry]);
 
   const [viewState, setViewState] = useState({
     latitude: 7.5,
@@ -275,9 +391,13 @@ export default function Assets() {
       lat: parseFloat(newLat),
       lng: parseFloat(newLng),
       tags: newTags.split(",").map(t => t.trim()).filter(Boolean),
+      region: newRegion || undefined,
+      country: newCountry || undefined,
+      subdivision: newSubdivision || undefined,
     };
     setAssets(prev => [...prev, asset]);
     setNewName(""); setNewType("office"); setNewLat(""); setNewLng(""); setNewTags("");
+    setNewRegion(""); setNewCountry(""); setNewSubdivision("");
     setAddDialogOpen(false);
   }
 
@@ -290,10 +410,14 @@ export default function Assets() {
       end: { lat: parseFloat(newRouteEndLat), lng: parseFloat(newRouteEndLng), label: newRouteEndLabel },
       checkpoints: [],
       tags: newRouteTags.split(",").map(t => t.trim()).filter(Boolean),
+      region: newRouteRegion || undefined,
+      country: newRouteCountry || undefined,
+      subdivision: newRouteSubdivision || undefined,
     };
     setRoutes(prev => [...prev, route]);
     setNewRouteName(""); setNewRouteStartLabel(""); setNewRouteStartLat(""); setNewRouteStartLng("");
     setNewRouteEndLabel(""); setNewRouteEndLat(""); setNewRouteEndLng(""); setNewRouteTags("");
+    setNewRouteRegion(""); setNewRouteCountry(""); setNewRouteSubdivision("");
     setAddRouteDialogOpen(false);
   }
 
@@ -384,6 +508,12 @@ export default function Assets() {
                         </TableCell>
                         <TableCell className="text-[10px] font-mono text-foreground py-2">
                           <div>{asset.name}</div>
+                          {(asset.country || asset.region) && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
+                              <span className="text-[8px] text-muted-foreground">{geoLabel(asset)}</span>
+                            </div>
+                          )}
                           {hasThreats && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <AlertTriangle className="h-2.5 w-2.5 text-destructive" />
@@ -460,6 +590,12 @@ export default function Assets() {
                         </TableCell>
                         <TableCell className="text-[10px] font-mono text-foreground py-2">
                           <div>{route.name}</div>
+                          {(route.country || route.region) && (
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <MapPin className="h-2.5 w-2.5 text-muted-foreground" />
+                              <span className="text-[8px] text-muted-foreground">{geoLabel(route)}</span>
+                            </div>
+                          )}
                           {hasThreats && (
                             <div className="flex items-center gap-1 mt-0.5">
                               <AlertTriangle className="h-2.5 w-2.5 text-destructive" />
@@ -665,6 +801,17 @@ export default function Assets() {
               <Label className="text-[10px] font-mono text-muted-foreground">TAGS (comma separated)</Label>
               <Input className="mt-1 text-xs font-mono bg-secondary border-border" value={newTags} onChange={e => setNewTags(e.target.value)} placeholder="primary, critical" />
             </div>
+            <GeoSelectors
+              region={newRegion}
+              country={newCountry}
+              subdivision={newSubdivision}
+              onRegionChange={(v) => { setNewRegion(v); setNewCountry(""); setNewSubdivision(""); }}
+              onCountryChange={(v) => { setNewCountry(v); setNewSubdivision(""); }}
+              onSubdivisionChange={setNewSubdivision}
+              countryOptions={newCountryOptions}
+              subdivisionOptions={newSubdivisionOptions}
+              subdivisionLabel={newSubdivisionLabel}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[10px] font-mono" onClick={() => setAddDialogOpen(false)}>CANCEL</Button>
@@ -720,6 +867,17 @@ export default function Assets() {
               <Label className="text-[10px] font-mono text-muted-foreground">TAGS (comma separated)</Label>
               <Input className="mt-1 text-xs font-mono bg-secondary border-border" value={newRouteTags} onChange={e => setNewRouteTags(e.target.value)} placeholder="primary, exec-travel" />
             </div>
+            <GeoSelectors
+              region={newRouteRegion}
+              country={newRouteCountry}
+              subdivision={newRouteSubdivision}
+              onRegionChange={(v) => { setNewRouteRegion(v); setNewRouteCountry(""); setNewRouteSubdivision(""); }}
+              onCountryChange={(v) => { setNewRouteCountry(v); setNewRouteSubdivision(""); }}
+              onSubdivisionChange={setNewRouteSubdivision}
+              countryOptions={newRouteCountryOptions}
+              subdivisionOptions={newRouteSubdivisionOptions}
+              subdivisionLabel={newRouteSubdivisionLabel}
+            />
           </div>
           <DialogFooter>
             <Button variant="outline" size="sm" className="text-[10px] font-mono" onClick={() => setAddRouteDialogOpen(false)}>CANCEL</Button>
