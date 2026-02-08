@@ -40,8 +40,8 @@ const App = () => (
           <AuditLogProvider>
             <Routes>
               {/* Public Routes */}
-              <Route path="/" element={<Index />} />
-              <Route path="/v2" element={<LandingV2 />} />
+              <Route path="/" element={<LandingV2 />} />
+              <Route path="/v1" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               
               {/* Protected Dashboard Routes */}
