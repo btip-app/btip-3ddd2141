@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
+import EscalateModal from "@/components/dashboard/EscalateModal";
 
 // Mock regions
 const REGIONS = [
@@ -318,6 +319,7 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
 
 function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
   const navigate = useNavigate();
+  const [escalateOpen, setEscalateOpen] = useState(false);
 
   if (!incident) return null;
 
@@ -409,12 +411,18 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
           FULL REPORT
         </button>
         <button
-          onClick={() => toast.info("Escalation workflow is not yet available.")}
+          onClick={() => setEscalateOpen(true)}
           className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono py-2 px-3 rounded border border-primary/30 cursor-pointer"
         >
           ESCALATE
         </button>
       </div>
+      <EscalateModal
+        open={escalateOpen}
+        onOpenChange={setEscalateOpen}
+        incidentId={incident.id}
+        incidentTitle={incident.title}
+      />
     </div>
   );
 }
