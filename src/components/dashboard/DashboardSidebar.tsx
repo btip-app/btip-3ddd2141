@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronRight,
   ClipboardList,
+  AlertTriangle,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -44,6 +45,7 @@ const mainNavItems: NavItem[] = [
 ];
 
 const adminNavItems: NavItem[] = [
+  { title: 'Escalations', url: '/dashboard/escalations', icon: AlertTriangle, roles: ['admin', 'analyst'] },
   { title: 'Admin', url: '/dashboard/admin', icon: Settings, roles: ['admin'] },
   { title: 'Audit Log', url: '/dashboard/audit-log', icon: ClipboardList, roles: ['admin'] },
 ];
