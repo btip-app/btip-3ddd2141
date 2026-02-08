@@ -1,4 +1,9 @@
 import { useState, useMemo } from "react";
+import { useUserRole } from "@/hooks/useUserRole";
+import { useAuditLog } from "@/hooks/useAuditLog";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -406,6 +411,13 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
 }
 
 export default function DailyBrief() {
+  const { role, isExecutive } = useUserRole();
+  const { log: auditLog } = useAuditLog();
+
+  const handleExport = () => {
+    auditLog("REPORT_EXPORT", "Daily Intelligence Brief");
+    toast.success("Export initiated", { description: "Report export queued (mock)" });
+  };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState("all");
@@ -458,12 +470,25 @@ export default function DailyBrief() {
             Operational threat summary • Last updated: {new Date().toLocaleTimeString()}
           </p>
         </div>
-        <div className="text-right">
-          <div className="text-xs font-mono text-foreground">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
-          </div>
-          <div className="text-[10px] font-mono text-muted-foreground">
-            CLASSIFICATION: INTERNAL
+        <div className="flex items-center gap-3">
+          {(isExecutive || role === 'admin') && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-[10px] font-mono h-7"
+              onClick={handleExport}
+            >
+              <Download className="h-3 w-3 mr-1" />
+              EXPORT
+            </Button>
+          )}
+          <div className="text-right">
+            <div className="text-xs font-mono text-foreground">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' })}
+            </div>
+            <div className="text-[10px] font-mono text-muted-foreground">
+              CLASSIFICATION: INTERNAL
+            </div>
           </div>
         </div>
       </div>

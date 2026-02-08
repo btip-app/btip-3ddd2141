@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -198,6 +199,7 @@ export default function Copilot() {
   const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { log: auditLogGlobal } = useAuditLog();
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -229,6 +231,7 @@ export default function Copilot() {
       timestamp: ts,
     };
     setAuditLog(prev => [auditEntry, ...prev]);
+    auditLogGlobal("COPILOT_QUERY", query);
 
     // Simulate processing delay (1.5–3s)
     const delay = 1500 + Math.random() * 1500;

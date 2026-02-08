@@ -7,11 +7,12 @@ import {
   Settings,
   Shield,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  ClipboardList,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
-import { useUserRole } from '@/hooks/useUserRole';
+import { useUserRole, AppRole } from '@/hooks/useUserRole';
 import {
   Sidebar,
   SidebarContent,
@@ -25,16 +26,26 @@ import {
   useSidebar,
 } from '@/components/ui/sidebar';
 
-const mainNavItems = [
-  { title: 'Daily Brief', url: '/dashboard/brief', icon: FileText },
-  { title: 'Threat Map', url: '/dashboard/map', icon: Map },
-  { title: 'Assets & Routes', url: '/dashboard/assets', icon: Package },
-  { title: 'Alerts', url: '/dashboard/alerts', icon: Bell },
-  { title: 'Copilot', url: '/dashboard/copilot', icon: Bot },
+interface NavItem {
+  title: string;
+  url: string;
+  icon: typeof FileText;
+  roles: AppRole[]; // empty = all roles
+}
+
+const allRoles: AppRole[] = ['admin', 'analyst', 'operator', 'executive', 'viewer'];
+
+const mainNavItems: NavItem[] = [
+  { title: 'Daily Brief', url: '/dashboard/brief', icon: FileText, roles: allRoles },
+  { title: 'Threat Map', url: '/dashboard/map', icon: Map, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Assets & Routes', url: '/dashboard/assets', icon: Package, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Alerts', url: '/dashboard/alerts', icon: Bell, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Copilot', url: '/dashboard/copilot', icon: Bot, roles: ['admin', 'analyst', 'operator'] },
 ];
 
-const adminNavItems = [
-  { title: 'Admin', url: '/dashboard/admin', icon: Settings },
+const adminNavItems: NavItem[] = [
+  { title: 'Admin', url: '/dashboard/admin', icon: Settings, roles: ['admin'] },
+  { title: 'Audit Log', url: '/dashboard/audit-log', icon: ClipboardList, roles: ['admin'] },
 ];
 
 export function DashboardSidebar() {
@@ -48,9 +59,13 @@ export function DashboardSidebar() {
       case 'admin': return 'bg-destructive/20 text-destructive';
       case 'analyst': return 'bg-primary/20 text-primary';
       case 'operator': return 'bg-amber-500/20 text-amber-400';
+      case 'executive': return 'bg-blue-500/20 text-blue-400';
       default: return 'bg-muted text-muted-foreground';
     }
   };
+
+  const visibleMainItems = mainNavItems.filter(item => role && item.roles.includes(role));
+  const visibleAdminItems = adminNavItems.filter(item => role && item.roles.includes(role));
 
   return (
     <Sidebar collapsible="icon" className="border-r border-border bg-card">
@@ -85,7 +100,7 @@ export function DashboardSidebar() {
           </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainNavItems.map((item) => (
+              {visibleMainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <NavLink 
@@ -104,14 +119,14 @@ export function DashboardSidebar() {
         </SidebarGroup>
 
         {/* Admin Navigation - Role Gated */}
-        {isAdmin && (
+        {visibleAdminItems.length > 0 && (
           <SidebarGroup>
             <SidebarGroupLabel className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">
               Administration
             </SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminNavItems.map((item) => (
+                {visibleAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
                       <NavLink 
