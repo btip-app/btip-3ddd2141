@@ -12,6 +12,7 @@ import {
   Shield,
   AlertTriangle,
   ExternalLink,
+  Printer,
 } from "lucide-react";
 import type { Incident, IncidentStatus } from "@/types/incident";
 
@@ -293,20 +294,29 @@ export default function IncidentReport() {
   const actions = getRecommendedActions(incident);
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto">
-      {/* Back navigation */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors mb-6 cursor-pointer"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" />
-        BACK
-      </button>
+    <div className="flex-1 overflow-y-auto p-6 max-w-4xl mx-auto print-report">
+      {/* Top bar — hidden in print */}
+      <div className="flex items-center justify-between mb-6 no-print">
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          BACK
+        </button>
+        <button
+          onClick={() => window.print()}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-mono text-muted-foreground hover:text-foreground bg-secondary hover:bg-secondary/80 border border-border rounded cursor-pointer transition-colors"
+        >
+          <Printer className="h-3.5 w-3.5" />
+          EXPORT PDF
+        </button>
+      </div>
 
       {/* Header */}
       <div className="mb-6">
         <div className="text-[10px] font-mono text-muted-foreground mb-2">
-          INCIDENT REPORT • ID-{incident.id} • {incident.category.toUpperCase()}
+          INCIDENT REPORT • ID-{incident.id} • {incident.category.toUpperCase()} • Generated {new Date().toLocaleDateString()}
         </div>
         <h1 className="text-lg font-mono font-bold text-foreground mb-3">
           {incident.title}
@@ -428,8 +438,8 @@ export default function IncidentReport() {
 
       <Separator className="mb-6" />
 
-      {/* Footer actions */}
-      <div className="flex gap-3 pb-8">
+      {/* Footer actions — hidden in print */}
+      <div className="flex gap-3 pb-8 no-print">
         <button
           onClick={() => navigate(-1)}
           className="px-4 py-2 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono rounded border border-border cursor-pointer transition-colors"
@@ -442,6 +452,13 @@ export default function IncidentReport() {
         >
           ESCALATE INCIDENT
         </button>
+      </div>
+
+      {/* Print footer */}
+      <div className="hidden print-only pb-4 border-t border-border pt-4 mt-8">
+        <div className="text-[9px] font-mono text-muted-foreground text-center">
+          BTIP CONFIDENTIAL • Generated {new Date().toISOString()} • For authorized personnel only
+        </div>
       </div>
       <EscalateModal
         open={escalateOpen}
