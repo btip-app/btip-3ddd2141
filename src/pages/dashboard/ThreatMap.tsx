@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { toast } from "sonner";
 import Map, { Marker, NavigationControl } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
@@ -533,10 +534,16 @@ export default function ThreatMap() {
 
               {/* Actions */}
               <div className="flex gap-2">
-                <button className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono py-2 px-3 rounded border border-border">
+                <button
+                  onClick={() => toast.info("Full report generation is not yet available.")}
+                  className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono py-2 px-3 rounded border border-border cursor-pointer"
+                >
                   VIEW FULL REPORT
                 </button>
-                <button className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono py-2 px-3 rounded border border-primary/30">
+                <button
+                  onClick={() => toast.info("Escalation workflow is not yet available.")}
+                  className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono py-2 px-3 rounded border border-primary/30 cursor-pointer"
+                >
                   ESCALATE
                 </button>
               </div>
