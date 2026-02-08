@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useIncidents } from "@/hooks/useIncidents";
 import Map, { Marker, NavigationControl, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
@@ -118,9 +119,8 @@ const INITIAL_ROUTES: RouteData[] = [
   },
 ];
 
-// --- Mock Incidents (shared with Threat Map for proximity) ---
-
-interface Incident {
+// Proximity incident type (subset of DB incident with coordinates)
+interface ProximityIncident {
   id: string;
   lat: number;
   lng: number;
@@ -128,20 +128,6 @@ interface Incident {
   category: string;
   severity: number;
 }
-
-const MOCK_INCIDENTS: Incident[] = [
-  { id: "i1", lat: 6.5244, lng: 3.3792, title: "Armed Robbery - Commercial Vehicles", category: "robbery", severity: 4 },
-  { id: "i2", lat: 4.8156, lng: 7.0498, title: "Kidnapping Threat - Industrial Zone", category: "kidnapping", severity: 5 },
-  { id: "i3", lat: 12.0022, lng: 8.5920, title: "Militia Activity Detected", category: "terrorism", severity: 5 },
-  { id: "i4", lat: 9.0765, lng: 7.3986, title: "Political Demonstration", category: "protest", severity: 2 },
-  { id: "i5", lat: 5.5560, lng: -0.1969, title: "Road Blockade by Local Groups", category: "protest", severity: 2 },
-  { id: "i6", lat: 6.1375, lng: 1.2123, title: "Port Security Breach Attempt", category: "robbery", severity: 3 },
-  { id: "i7", lat: 4.0511, lng: 9.7679, title: "Suspicious Vessel Activity", category: "piracy", severity: 3 },
-  { id: "i8", lat: 6.3350, lng: 5.6037, title: "Civil Unrest - Market Area", category: "protest", severity: 3 },
-  { id: "i9", lat: 6.4400, lng: 3.4100, title: "Carjacking Near Ikoyi", category: "robbery", severity: 4 },
-  { id: "i10", lat: 4.7500, lng: 7.0300, title: "Pipeline Vandalism Attempt", category: "terrorism", severity: 4 },
-  { id: "i11", lat: 7.8000, lng: 5.1000, title: "Highway Banditry Report", category: "robbery", severity: 3 },
-];
 
 // --- Helpers ---
 
@@ -277,6 +263,7 @@ function getRouteGeoJSON(route: RouteData) {
 // --- Component ---
 
 export default function Assets() {
+  const { incidents, loading: incidentsLoading } = useIncidents();
   const [assets, setAssets] = useState<Asset[]>(INITIAL_ASSETS);
   const [routes, setRoutes] = useState<RouteData[]>(INITIAL_ROUTES);
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
@@ -340,27 +327,35 @@ export default function Assets() {
     [routes]
   );
 
+  // Build proximity-ready incidents from live data
+  const proximityIncidents: ProximityIncident[] = useMemo(() =>
+    incidents
+      .filter(i => i.lat != null && i.lng != null)
+      .map(i => ({ id: i.id, lat: i.lat!, lng: i.lng!, title: i.title, category: i.category, severity: i.severity })),
+    [incidents]
+  );
+
   // Proximity: incidents near each asset
   const assetProximity = useMemo(() => {
-    const map: Record<string, Incident[]> = {};
+    const map: Record<string, ProximityIncident[]> = {};
     for (const asset of assets) {
-      map[asset.id] = MOCK_INCIDENTS.filter(
+      map[asset.id] = proximityIncidents.filter(
         inc => haversineKm(asset.lat, asset.lng, inc.lat, inc.lng) <= PROXIMITY_RADIUS_KM
       );
     }
     return map;
-  }, [assets]);
+  }, [assets, proximityIncidents]);
 
   // Proximity: incidents near each route
   const routeProximity = useMemo(() => {
-    const map: Record<string, Incident[]> = {};
+    const map: Record<string, ProximityIncident[]> = {};
     for (const route of routes) {
-      map[route.id] = MOCK_INCIDENTS.filter(
+      map[route.id] = proximityIncidents.filter(
         inc => distanceToRoute(inc.lat, inc.lng, route) <= PROXIMITY_RADIUS_KM
       );
     }
     return map;
-  }, [routes]);
+  }, [routes, proximityIncidents]);
 
   function handleSelectAsset(id: string) {
     setSelectedAssetId(id === selectedAssetId ? null : id);
