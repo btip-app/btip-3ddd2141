@@ -25,15 +25,17 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
+import {
+  REGIONS as GEO_REGIONS,
+  getCountriesForRegion,
+  getSubdivisionsForCountry,
+  getSubdivisionTerm,
+} from "@/data/geography";
 
-// Mock regions
+// Build region options from geography data
 const REGIONS = [
   { value: "all", label: "All Regions" },
-  { value: "west-africa", label: "West Africa" },
-  { value: "east-africa", label: "East Africa" },
-  { value: "southern-africa", label: "Southern Africa" },
-  { value: "central-africa", label: "Central Africa" },
-  { value: "north-africa", label: "North Africa" },
+  ...GEO_REGIONS.map(r => ({ value: r.value, label: r.label })),
 ];
 
 // Mock threat categories
@@ -58,6 +60,8 @@ interface Incident {
   status: IncidentStatus;
   category: string;
   region: string;
+  country?: string;
+  subdivision?: string;
   trend?: string;
   summary?: string;
   sources?: string[];
@@ -76,6 +80,8 @@ const mockIncidents: Incident[] = [
     status: "confirmed",
     category: "robbery",
     region: "west-africa",
+    country: "nigeria",
+    subdivision: "lagos",
     summary: "Multiple coordinated attacks on commercial vehicles along the Lagos-Ibadan expressway. Criminal group using roadblocks and armed personnel. Three incidents in past 48 hours.",
     sources: ["Local Police Report", "Field Agent LAGOS-07", "Media Monitoring"],
     analyst: "J. Okonkwo",
@@ -90,6 +96,8 @@ const mockIncidents: Incident[] = [
     status: "reviewed",
     category: "kidnapping",
     region: "west-africa",
+    country: "nigeria",
+    subdivision: "rivers",
     summary: "Intelligence suggests targeted kidnapping operation planned against expatriate workers in the Trans-Amadi industrial area. Source reliability: B2.",
     sources: ["HUMINT Source PH-12", "Pattern Analysis"],
     analyst: "M. Adeyemi",
@@ -104,6 +112,8 @@ const mockIncidents: Incident[] = [
     status: "confirmed",
     category: "protest",
     region: "east-africa",
+    country: "kenya",
+    subdivision: "nairobi",
     summary: "Labor union protests blocking Mombasa Road affecting cargo movement from port. Expected to continue for 24-48 hours pending negotiations.",
     sources: ["Ground Team NBO", "Traffic Monitoring", "Social Media Intel"],
     analyst: "P. Kimani",
@@ -118,6 +128,8 @@ const mockIncidents: Incident[] = [
     status: "ai",
     category: "robbery",
     region: "east-africa",
+    country: "kenya",
+    subdivision: "mombasa",
     summary: "AI-flagged pattern of unusual vehicle movements near port storage facilities. Requires human verification.",
     sources: ["CCTV Analysis", "Pattern Recognition AI"],
     analyst: "Pending Review",
@@ -132,12 +144,13 @@ const mockIncidents: Incident[] = [
     status: "reviewed",
     category: "political",
     region: "southern-africa",
+    country: "south-africa",
+    subdivision: "gauteng",
     summary: "Post-election tensions escalating in multiple townships. Isolated incidents of property damage reported. Security forces on heightened alert.",
     sources: ["Embassy Cables", "Local Media", "Field Team JNB"],
     analyst: "R. van der Berg",
   },
 ];
-
 const trendingIncidents: Incident[] = [
   {
     id: "6",
@@ -150,6 +163,8 @@ const trendingIncidents: Incident[] = [
     trend: "+12%",
     category: "terrorism",
     region: "west-africa",
+    country: "nigeria",
+    subdivision: "kano",
     summary: "Increased movement patterns detected consistent with militant group operations. Cross-referencing with known faction territories.",
     sources: ["Satellite Imagery", "SIGINT", "Regional Partners"],
     analyst: "Pending Review",
@@ -165,6 +180,7 @@ const trendingIncidents: Incident[] = [
     trend: "+8%",
     category: "piracy",
     region: "west-africa",
+    country: "nigeria",
     summary: "Maritime patrols report increased small vessel activity. Two attempted boardings in past week. Recommend enhanced escort protocols.",
     sources: ["IMB Report", "Navy Liaison", "Shipping Intel Network"],
     analyst: "C. Mensah",
@@ -180,6 +196,8 @@ const trendingIncidents: Incident[] = [
     trend: "+5%",
     category: "political",
     region: "east-africa",
+    country: "ethiopia",
+    subdivision: "addis-ababa",
     summary: "Social media analysis indicates rising tensions ahead of AU summit. Protest activity possible near diplomatic quarter.",
     sources: ["Social Media Analysis", "Open Source Intel"],
     analyst: "Pending Review",
@@ -197,6 +215,8 @@ const myRegionIncidents: Incident[] = [
     status: "confirmed",
     category: "protest",
     region: "west-africa",
+    country: "ghana",
+    subdivision: "greater-accra",
     summary: "Community groups blocking access road near Tema junction. Dispute over local infrastructure project. Police negotiating.",
     sources: ["Ground Team ACC", "Local Contacts"],
     analyst: "K. Asante",
@@ -211,11 +231,15 @@ const myRegionIncidents: Incident[] = [
     status: "reviewed",
     category: "robbery",
     region: "west-africa",
+    country: "ghana",
+    subdivision: "greater-accra",
     summary: "Series of break-ins targeting industrial warehouses. Organized group suspected. Enhanced security measures recommended.",
     sources: ["Police Report", "Security Contractor"],
     analyst: "K. Asante",
   },
 ];
+
+
 
 // Combine all incidents for lookup
 const allIncidents = [...mockIncidents, ...trendingIncidents, ...myRegionIncidents];
@@ -438,9 +462,38 @@ export default function DailyBrief() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
   const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedCountry, setSelectedCountry] = useState("all");
+  const [selectedSubdivision, setSelectedSubdivision] = useState("all");
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     THREAT_CATEGORIES.map(c => c.id) // All selected by default
   );
+
+  // Derived geography options
+  const countryOptions = useMemo(() => {
+    return getCountriesForRegion(selectedRegion);
+  }, [selectedRegion]);
+
+  const subdivisionOptions = useMemo(() => {
+    if (selectedCountry === "all") return [];
+    return getSubdivisionsForCountry(selectedCountry);
+  }, [selectedCountry]);
+
+  const subdivisionLabel = useMemo(() => {
+    if (selectedCountry === "all") return "Subdivision";
+    return getSubdivisionTerm(selectedCountry).toUpperCase();
+  }, [selectedCountry]);
+
+  // Reset child selections when parent changes
+  const handleRegionChange = (value: string) => {
+    setSelectedRegion(value);
+    setSelectedCountry("all");
+    setSelectedSubdivision("all");
+  };
+
+  const handleCountryChange = (value: string) => {
+    setSelectedCountry(value);
+    setSelectedSubdivision("all");
+  };
 
   const handleIncidentClick = (id: string) => {
     setSelectedIncidentId(id);
@@ -456,21 +509,20 @@ export default function DailyBrief() {
   };
 
   // Filter incidents based on selections
+  const matchesGeoFilters = (incident: Incident) => {
+    if (selectedRegion !== "all" && incident.region !== selectedRegion) return false;
+    if (selectedCountry !== "all" && incident.country !== selectedCountry) return false;
+    if (selectedSubdivision !== "all" && incident.subdivision !== selectedSubdivision) return false;
+    return selectedCategories.includes(incident.category);
+  };
+
   const filteredTopThreats = useMemo(() => {
-    return mockIncidents.filter(incident => {
-      const regionMatch = selectedRegion === "all" || incident.region === selectedRegion;
-      const categoryMatch = selectedCategories.includes(incident.category);
-      return regionMatch && categoryMatch;
-    });
-  }, [selectedRegion, selectedCategories]);
+    return mockIncidents.filter(matchesGeoFilters);
+  }, [selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
   const filteredTrending = useMemo(() => {
-    return trendingIncidents.filter(incident => {
-      const regionMatch = selectedRegion === "all" || incident.region === selectedRegion;
-      const categoryMatch = selectedCategories.includes(incident.category);
-      return regionMatch && categoryMatch;
-    });
-  }, [selectedRegion, selectedCategories]);
+    return trendingIncidents.filter(matchesGeoFilters);
+  }, [selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
   const selectedIncident = allIncidents.find(i => i.id === selectedIncidentId) || null;
 
@@ -520,7 +572,7 @@ export default function DailyBrief() {
         {/* Region Dropdown */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-muted-foreground">REGION:</span>
-          <Select value={selectedRegion} onValueChange={setSelectedRegion}>
+          <Select value={selectedRegion} onValueChange={handleRegionChange}>
             <SelectTrigger className="w-[160px] h-7 text-[10px] font-mono bg-card border-border">
               <SelectValue />
             </SelectTrigger>
@@ -537,6 +589,44 @@ export default function DailyBrief() {
             </SelectContent>
           </Select>
         </div>
+
+        {/* Country Dropdown */}
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground">COUNTRY:</span>
+          <Select value={selectedCountry} onValueChange={handleCountryChange}>
+            <SelectTrigger className="w-[150px] h-7 text-[10px] font-mono bg-card border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border z-50">
+              <SelectItem value="all" className="text-[10px] font-mono">All Countries</SelectItem>
+              {countryOptions.map(c => (
+                <SelectItem key={c.value} value={c.value} className="text-[10px] font-mono">
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Subdivision Dropdown — only shown when a country is selected */}
+        {selectedCountry !== "all" && subdivisionOptions.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">{subdivisionLabel}:</span>
+            <Select value={selectedSubdivision} onValueChange={setSelectedSubdivision}>
+              <SelectTrigger className="w-[160px] h-7 text-[10px] font-mono bg-card border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                <SelectItem value="all" className="text-[10px] font-mono">All {getSubdivisionTerm(selectedCountry)}s</SelectItem>
+                {subdivisionOptions.map(s => (
+                  <SelectItem key={s.value} value={s.value} className="text-[10px] font-mono">
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <Separator orientation="vertical" className="h-6" />
 

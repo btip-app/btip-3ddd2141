@@ -10,6 +10,8 @@ export interface Incident {
   status: IncidentStatus;
   category: string;
   region?: string;
+  country?: string;
+  subdivision?: string;
   trend?: string;
   summary?: string;
   sources?: string[];
