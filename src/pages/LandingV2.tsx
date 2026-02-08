@@ -1,3 +1,4 @@
+import LandingNav from "@/components/landing-v2/LandingNav";
 import HeroSection from "@/components/landing-v2/HeroSection";
 import AppEntryStrip from "@/components/landing-v2/AppEntryStrip";
 import ProblemSection from "@/components/landing-v2/ProblemSection";
@@ -12,14 +13,15 @@ import FooterV2 from "@/components/landing-v2/FooterV2";
 const LandingV2 = () => {
   return (
     <div className="min-h-screen bg-background text-foreground scroll-smooth">
-      <HeroSection />
+      <LandingNav />
+      <div id="hero"><HeroSection /></div>
       <AppEntryStrip />
-      <ProblemSection />
+      <div id="problem"><ProblemSection /></div>
       <ValueCallouts />
-      <SolutionSection />
-      <PillarsSection />
+      <div id="solution"><SolutionSection /></div>
+      <div id="pillars"><PillarsSection /></div>
       <UserWayfinding />
-      <TrustSection />
+      <div id="trust"><TrustSection /></div>
       <CTASection />
       <FooterV2 />
     </div>
