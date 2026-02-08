@@ -70,6 +70,13 @@ export function ProfileDropdown() {
           </DropdownMenuItem>
         )}
         <DropdownMenuItem
+          onClick={() => navigate('/dashboard/profile')}
+          className="text-xs font-mono cursor-pointer"
+        >
+          <User className="h-3.5 w-3.5 mr-2" />
+          Profile & Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={() => navigate('/dashboard/brief')}
           className="text-xs font-mono cursor-pointer"
         >
