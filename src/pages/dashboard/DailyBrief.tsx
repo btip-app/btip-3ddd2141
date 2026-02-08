@@ -5,7 +5,7 @@ import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
+import { CreateIncidentDialog } from "@/components/dashboard/CreateIncidentDialog";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -265,6 +266,7 @@ export default function DailyBrief() {
   const { log: auditLog } = useAuditLog();
   const { incidents, loading: incidentsLoading } = useIncidents();
   const [addRegionOpen, setAddRegionOpen] = useState(false);
+  const [createIncidentOpen, setCreateIncidentOpen] = useState(false);
   const { regions: monitoredRegions, addRegion, removeRegion } = useMonitoredRegions();
 
   const handleExport = () => {
@@ -362,6 +364,16 @@ export default function DailyBrief() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {(role === 'admin' || role === 'analyst') && (
+            <Button
+              size="sm"
+              className="text-[10px] font-mono h-7"
+              onClick={() => setCreateIncidentOpen(true)}
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              NEW INCIDENT
+            </Button>
+          )}
           {(isExecutive || role === 'admin') && (
             <Button
               variant="outline"
@@ -575,6 +587,8 @@ export default function DailyBrief() {
         onAdd={async (r) => { await addRegion(r); }}
         existing={monitoredRegions}
       />
+
+      <CreateIncidentDialog open={createIncidentOpen} onOpenChange={setCreateIncidentOpen} />
 
       {/* Incident Detail Sheet */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
