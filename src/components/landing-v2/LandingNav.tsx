@@ -9,13 +9,47 @@ const NAV_ITEMS = [
   { label: "Trust", href: "#trust" },
 ];
 
+const SECTION_IDS = ["hero", "problem", "solution", "pillars", "trust"];
+
 export default function LandingNav() {
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState("hero");
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const observers: IntersectionObserver[] = [];
+    const visibleSections = new Map<string, number>();
+
+    SECTION_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+
+      const observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            visibleSections.set(id, entry.intersectionRatio);
+          } else {
+            visibleSections.delete(id);
+          }
+          for (const sId of SECTION_IDS) {
+            if (visibleSections.has(sId)) {
+              setActiveSection(sId);
+              break;
+            }
+          }
+        },
+        { threshold: 0.15, rootMargin: "-48px 0px 0px 0px" }
+      );
+      observer.observe(el);
+      observers.push(observer);
+    });
+
+    return () => observers.forEach((o) => o.disconnect());
   }, []);
 
   const handleAnchorClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
@@ -35,7 +69,6 @@ export default function LandingNav() {
       }`}
     >
       <div className="container mx-auto px-6 h-12 flex items-center justify-between">
-        {/* Brand */}
         <a
           href="#hero"
           onClick={(e) => handleAnchorClick(e, "#hero")}
@@ -47,21 +80,27 @@ export default function LandingNav() {
           </span>
         </a>
 
-        {/* Center links */}
         <div className="hidden md:flex items-center gap-6">
-          {NAV_ITEMS.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              onClick={(e) => handleAnchorClick(e, item.href)}
-              className="text-[11px] font-mono text-muted-foreground uppercase tracking-wider hover:text-foreground transition-colors duration-300 cursor-pointer"
-            >
-              {item.label}
-            </a>
-          ))}
+          {NAV_ITEMS.map((item) => {
+            const sectionId = item.href.replace("#", "");
+            const isActive = activeSection === sectionId;
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                onClick={(e) => handleAnchorClick(e, item.href)}
+                className={`text-[11px] font-mono uppercase tracking-wider transition-colors duration-300 cursor-pointer ${
+                  isActive
+                    ? "text-primary font-semibold"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {item.label}
+              </a>
+            );
+          })}
         </div>
 
-        {/* CTA */}
         <div className="flex items-center gap-2">
           <Link
             to="/auth"
