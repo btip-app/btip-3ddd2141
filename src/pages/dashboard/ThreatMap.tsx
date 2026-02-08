@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import EscalateModal from "@/components/dashboard/EscalateModal";
 import Map, { Marker, NavigationControl } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
@@ -250,6 +251,7 @@ export default function ThreatMap() {
   const navigate = useNavigate();
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [escalateOpen, setEscalateOpen] = useState(false);
   
   const [threatType, setThreatType] = useState("all");
   const [timeWindow, setTimeWindow] = useState("30d");
@@ -543,7 +545,7 @@ export default function ThreatMap() {
                   VIEW FULL REPORT
                 </button>
                 <button
-                  onClick={() => toast.info("Escalation workflow is not yet available.")}
+                  onClick={() => setEscalateOpen(true)}
                   className="flex-1 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono py-2 px-3 rounded border border-primary/30 cursor-pointer"
                 >
                   ESCALATE
@@ -560,6 +562,14 @@ export default function ThreatMap() {
           )}
         </SheetContent>
       </Sheet>
+      {selectedMarker && (
+        <EscalateModal
+          open={escalateOpen}
+          onOpenChange={setEscalateOpen}
+          incidentId={selectedMarker.id}
+          incidentTitle={selectedMarker.title}
+        />
+      )}
     </div>
   );
 }

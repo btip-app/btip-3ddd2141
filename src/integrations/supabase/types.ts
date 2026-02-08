@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      escalations: {
+        Row: {
+          assigned_to: string
+          created_at: string
+          created_by: string
+          id: string
+          incident_id: string
+          incident_title: string
+          notes: string | null
+          priority: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to: string
+          created_at?: string
+          created_by: string
+          id?: string
+          incident_id: string
+          incident_title: string
+          notes?: string | null
+          priority: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          incident_id?: string
+          incident_title?: string
+          notes?: string | null
+          priority?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       organizations: {
         Row: {
           created_at: string

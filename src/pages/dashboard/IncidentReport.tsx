@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { toast } from "sonner";
+import EscalateModal from "@/components/dashboard/EscalateModal";
 import {
   ArrowLeft,
   MapPin,
@@ -267,7 +268,7 @@ function getRecommendedActions(incident: Incident): string[] {
 export default function IncidentReport() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-
+  const [escalateOpen, setEscalateOpen] = useState(false);
   const incident = allIncidents.find((i) => i.id === id);
 
   if (!incident) {
@@ -436,14 +437,18 @@ export default function IncidentReport() {
           ← BACK TO DASHBOARD
         </button>
         <button
-          onClick={() =>
-            toast.info("Escalation workflow is not yet available.")
-          }
+          onClick={() => setEscalateOpen(true)}
           className="px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary text-[10px] font-mono rounded border border-primary/30 cursor-pointer transition-colors"
         >
           ESCALATE INCIDENT
         </button>
       </div>
+      <EscalateModal
+        open={escalateOpen}
+        onOpenChange={setEscalateOpen}
+        incidentId={incident.id}
+        incidentTitle={incident.title}
+      />
     </div>
   );
 }
