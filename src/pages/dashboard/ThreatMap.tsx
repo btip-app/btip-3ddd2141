@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import Map, { Marker, NavigationControl } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -246,6 +247,7 @@ function ThreatMarker({
 }
 
 export default function ThreatMap() {
+  const navigate = useNavigate();
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   
@@ -535,7 +537,7 @@ export default function ThreatMap() {
               {/* Actions */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => toast.info("Full report generation is not yet available.")}
+                  onClick={() => selectedMarker && navigate(`/dashboard/incident/${selectedMarker.id}`)}
                   className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono py-2 px-3 rounded border border-border cursor-pointer"
                 >
                   VIEW FULL REPORT

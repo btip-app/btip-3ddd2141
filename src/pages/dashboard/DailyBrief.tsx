@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { Button } from "@/components/ui/button";
@@ -316,6 +317,8 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
 }
 
 function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
+  const navigate = useNavigate();
+
   if (!incident) return null;
 
   return (
@@ -399,7 +402,7 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
       {/* Actions placeholder */}
       <div className="flex gap-2">
         <button
-          onClick={() => toast.info("Full report generation is not yet available.")}
+          onClick={() => navigate(`/dashboard/incident/${incident.id}`)}
           className="flex-1 bg-secondary hover:bg-secondary/80 text-secondary-foreground text-[10px] font-mono py-2 px-3 rounded border border-border cursor-pointer"
         >
           <ExternalLink className="h-3 w-3 inline mr-1" />

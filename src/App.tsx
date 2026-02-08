@@ -23,6 +23,7 @@ import Alerts from "./pages/dashboard/Alerts";
 import Copilot from "./pages/dashboard/Copilot";
 import Admin from "./pages/dashboard/Admin";
 import AuditLog from "./pages/dashboard/AuditLog";
+import IncidentReport from "./pages/dashboard/IncidentReport";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -75,6 +76,7 @@ const App = () => (
                     <AuditLog />
                   </RoleGate>
                 } />
+                <Route path="incident/:id" element={<IncidentReport />} />
               </Route>
               
               {/* 404 */}
