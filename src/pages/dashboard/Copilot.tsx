@@ -10,12 +10,15 @@ import {
   ArrowRight,
   Brain,
   CheckCircle2,
+  ClipboardList,
   ExternalLink,
   FileText,
+  Info,
   Loader2,
   MessageSquare,
   Send,
   Shield,
+  ShieldAlert,
   Target,
   Terminal,
 } from "lucide-react";
@@ -45,6 +48,14 @@ interface Message {
   content: string;
   timestamp: string;
   response?: CopilotResponse;
+}
+
+interface AuditEntry {
+  id: string;
+  query: string;
+  riskLevel: RiskLevel | null;
+  confidence: number | null;
+  timestamp: string;
 }
 
 // --- Mock response bank ---
@@ -175,6 +186,8 @@ const SUGGESTED_QUERIES = [
   "Are there kidnapping threats near Bonny Island?",
 ];
 
+const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Assessments are based on available mock data and should be validated against ground-truth sources before operational use.";
+
 // --- Component ---
 
 export default function Copilot() {
@@ -182,6 +195,8 @@ export default function Copilot() {
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [auditLog, setAuditLog] = useState<AuditEntry[]>([]);
+  const [showAuditLog, setShowAuditLog] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -194,15 +209,26 @@ export default function Copilot() {
     if (!input.trim() || isProcessing) return;
     const query = input.trim();
     setInput("");
+    const ts = formatNow();
 
     const userMsg: Message = {
       id: `msg-${Date.now()}`,
       role: "user",
       content: query,
-      timestamp: formatNow(),
+      timestamp: ts,
     };
     setMessages(prev => [...prev, userMsg]);
     setIsProcessing(true);
+
+    // Log query to audit log immediately
+    const auditEntry: AuditEntry = {
+      id: `audit-${Date.now()}`,
+      query,
+      riskLevel: null,
+      confidence: null,
+      timestamp: ts,
+    };
+    setAuditLog(prev => [auditEntry, ...prev]);
 
     // Simulate processing delay (1.5–3s)
     const delay = 1500 + Math.random() * 1500;
@@ -217,6 +243,14 @@ export default function Copilot() {
       };
       setMessages(prev => [...prev, assistantMsg]);
       setSelectedMessage(assistantMsg);
+
+      // Update audit log entry with result
+      setAuditLog(prev =>
+        prev.map(e => e.id === auditEntry.id
+          ? { ...e, riskLevel: response.riskLevel, confidence: response.confidence }
+          : e
+        )
+      );
       setIsProcessing(false);
     }, delay);
   }
@@ -240,11 +274,61 @@ export default function Copilot() {
             </p>
           </div>
         </div>
-        <Badge variant="outline" className="text-[10px] font-mono">
-          <Terminal className="h-3 w-3 mr-1" />
-          {messages.filter(m => m.role === "assistant").length} analyses
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={() => setShowAuditLog(!showAuditLog)}
+          >
+            <ClipboardList className="h-3 w-3 mr-1" />
+            AUDIT LOG ({auditLog.length})
+          </Button>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            <Terminal className="h-3 w-3 mr-1" />
+            {messages.filter(m => m.role === "assistant").length} analyses
+          </Badge>
+        </div>
       </div>
+
+      {/* Disclaimer banner */}
+      <div className="mb-3 flex items-start gap-2 px-3 py-2 rounded border border-accent/20 bg-accent/5">
+        <ShieldAlert className="h-3.5 w-3.5 text-accent mt-0.5 flex-shrink-0" />
+        <p className="text-[9px] font-mono text-accent/80 leading-relaxed">
+          {DISCLAIMER}
+        </p>
+      </div>
+
+      {/* Audit log (collapsible) */}
+      {showAuditLog && (
+        <Card className="mb-3 border-border bg-card max-h-[160px] overflow-auto">
+          <div className="px-3 pt-2 pb-1">
+            <h3 className="text-[9px] font-mono font-bold text-muted-foreground">QUERY AUDIT LOG</h3>
+          </div>
+          <div className="px-3 pb-2 space-y-1">
+            {auditLog.length === 0 ? (
+              <p className="text-[9px] font-mono text-muted-foreground/50 py-2">No queries logged yet.</p>
+            ) : (
+              auditLog.map(entry => (
+                <div key={entry.id} className="flex items-center gap-2 py-1 border-b border-border/30 last:border-0">
+                  <span className="text-[8px] font-mono text-muted-foreground w-16 flex-shrink-0">{entry.timestamp}</span>
+                  <span className="text-[9px] font-mono text-foreground flex-1 truncate">{entry.query}</span>
+                  {entry.riskLevel ? (
+                    <Badge className={`${RISK_META[entry.riskLevel].className} text-[7px] font-mono px-1 py-0`}>
+                      {RISK_META[entry.riskLevel].label}
+                    </Badge>
+                  ) : (
+                    <span className="text-[8px] font-mono text-muted-foreground/50">pending</span>
+                  )}
+                  {entry.confidence !== null && (
+                    <span className="text-[8px] font-mono text-muted-foreground w-10 text-right">{entry.confidence}%</span>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Main split */}
       <div className="flex-1 flex gap-3 min-h-0">
@@ -306,6 +390,16 @@ export default function Copilot() {
                       <p className="text-[11px] font-mono text-foreground leading-relaxed">
                         {msg.content}
                       </p>
+
+                      {/* Guardrail disclaimer on every response */}
+                      {msg.role === "assistant" && (
+                        <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-accent/5 border border-accent/10">
+                          <Info className="h-2.5 w-2.5 text-accent/60 mt-0.5 flex-shrink-0" />
+                          <span className="text-[7px] font-mono text-accent/60 leading-relaxed">
+                            Mock intelligence assessment — not a guarantee of safety. Validate before operational use.
+                          </span>
+                        </div>
+                      )}
 
                       {/* Quick stats for assistant */}
                       {msg.response && (
@@ -477,6 +571,9 @@ export default function Copilot() {
                   <div>Analysis ID: {selectedMessage.id}</div>
                   <div>Generated: {selectedMessage.timestamp}</div>
                   <div>Data source: Mock intelligence feed</div>
+                  <div className="mt-1.5 pt-1.5 border-t border-border/30 text-accent/50">
+                    ⚠ Decision-support only. Not a guarantee.
+                  </div>
                 </div>
               </div>
             </ScrollArea>
