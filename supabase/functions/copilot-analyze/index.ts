@@ -98,7 +98,7 @@ GUIDELINES:
 - Link the most relevant incidents (up to 5)
 - If no incidents match the query, say so honestly and set riskLevel to "low"`;
 
-    console.log("Calling AI gateway...");
+    console.log("Calling AI gateway with streaming...");
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -114,6 +114,7 @@ GUIDELINES:
         ],
         temperature: 0.3,
         max_tokens: 2000,
+        stream: true,
       }),
     });
 
@@ -140,32 +141,94 @@ GUIDELINES:
       });
     }
 
-    const aiData = await aiResponse.json();
-    const rawContent = aiData.choices?.[0]?.message?.content || "";
-    console.log("AI raw response length:", rawContent.length);
+    // Stream the SSE response through to the client
+    const reader = aiResponse.body!.getReader();
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
 
-    // Parse JSON from response (handle potential markdown fences)
-    let parsed;
-    try {
-      const jsonStr = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      parsed = JSON.parse(jsonStr);
-    } catch (e) {
-      console.error("Failed to parse AI response as JSON:", e, rawContent.slice(0, 500));
-      // Fallback: return raw text as summary
-      parsed = {
-        riskLevel: "medium",
-        confidence: 50,
-        summary: rawContent.slice(0, 500),
-        evidence: ["AI response could not be structured"],
-        recommendations: ["Review raw analysis output"],
-        linkedIncidents: [],
-      };
-    }
+    const stream = new ReadableStream({
+      async start(controller) {
+        let fullContent = "";
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-    console.log("Copilot analysis complete, risk:", parsed.riskLevel);
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
 
-    return new Response(JSON.stringify(parsed), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (data === "[DONE]") {
+                // Send the final parsed JSON
+                const jsonStr = fullContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+                let parsed;
+                try {
+                  parsed = JSON.parse(jsonStr);
+                } catch {
+                  parsed = {
+                    riskLevel: "medium",
+                    confidence: 50,
+                    summary: fullContent.slice(0, 500),
+                    evidence: ["AI response could not be structured"],
+                    recommendations: ["Review raw analysis output"],
+                    linkedIncidents: [],
+                  };
+                }
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
+                controller.close();
+                return;
+              }
+
+              try {
+                const json = JSON.parse(data);
+                const delta = json.choices?.[0]?.delta?.content;
+                if (delta) {
+                  fullContent += delta;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
+                }
+              } catch {
+                // skip unparseable lines
+              }
+            }
+          }
+
+          // If we exit the loop without [DONE], finalize
+          if (fullContent) {
+            const jsonStr = fullContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+            let parsed;
+            try {
+              parsed = JSON.parse(jsonStr);
+            } catch {
+              parsed = {
+                riskLevel: "medium",
+                confidence: 50,
+                summary: fullContent.slice(0, 500),
+                evidence: ["AI response could not be structured"],
+                recommendations: ["Review raw analysis output"],
+                linkedIncidents: [],
+              };
+            }
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
+          }
+          controller.close();
+        } catch (e) {
+          console.error("Stream error:", e);
+          controller.error(e);
+        }
+      },
+    });
+
+    console.log("Streaming response started");
+
+    return new Response(stream, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
     });
   } catch (e) {
     console.error("Copilot error:", e);

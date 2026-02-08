@@ -138,51 +138,108 @@ export default function Copilot() {
     setAuditLog(prev => [auditEntry, ...prev]);
     auditLogGlobal("COPILOT_QUERY", query);
 
-    // Call AI edge function
+    const streamingMsgId = `msg-${Date.now() + 1}`;
+
+    // Add a placeholder assistant message for streaming
+    const placeholderMsg: Message = {
+      id: streamingMsgId,
+      role: "assistant",
+      content: "",
+      timestamp: formatNow(),
+    };
+    setMessages(prev => [...prev, placeholderMsg]);
+
+    // Stream from edge function via fetch + SSE
     (async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("copilot-analyze", {
-          body: { query },
-        });
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData?.session?.access_token;
 
-        if (error) throw error;
-
-        const response: CopilotResponse = {
-          riskLevel: data.riskLevel || "low",
-          confidence: data.confidence || 50,
-          summary: data.summary || "Analysis could not be completed.",
-          evidence: data.evidence || [],
-          recommendations: data.recommendations || [],
-          linkedIncidents: data.linkedIncidents || [],
-        };
-
-        const assistantMsg: Message = {
-          id: `msg-${Date.now()}`,
-          role: "assistant",
-          content: response.summary,
-          timestamp: formatNow(),
-          response,
-        };
-        setMessages(prev => [...prev, assistantMsg]);
-        setSelectedMessage(assistantMsg);
-
-        setAuditLog(prev =>
-          prev.map(e => e.id === auditEntry.id
-            ? { ...e, riskLevel: response.riskLevel, confidence: response.confidence }
-            : e
-          )
+        const res = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/copilot-analyze`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ query }),
+          }
         );
+
+        if (!res.ok) {
+          const errBody = await res.json().catch(() => ({ error: "Analysis failed" }));
+          throw new Error(errBody.error || `HTTP ${res.status}`);
+        }
+
+        const reader = res.body!.getReader();
+        const decoder = new TextDecoder();
+        let rawText = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
+
+          for (const line of lines) {
+            if (!line.startsWith("data: ")) continue;
+            const payload = line.slice(6).trim();
+            if (!payload) continue;
+
+            try {
+              const evt = JSON.parse(payload);
+
+              if (evt.type === "delta") {
+                rawText += evt.delta;
+                // Update the streaming message content progressively
+                setMessages(prev =>
+                  prev.map(m => m.id === streamingMsgId ? { ...m, content: rawText } : m)
+                );
+              } else if (evt.type === "complete") {
+                const parsed = evt.parsed as CopilotResponse;
+                const response: CopilotResponse = {
+                  riskLevel: parsed.riskLevel || "low",
+                  confidence: parsed.confidence || 50,
+                  summary: parsed.summary || "Analysis could not be completed.",
+                  evidence: parsed.evidence || [],
+                  recommendations: parsed.recommendations || [],
+                  linkedIncidents: parsed.linkedIncidents || [],
+                };
+
+                const finalMsg: Message = {
+                  id: streamingMsgId,
+                  role: "assistant",
+                  content: response.summary,
+                  timestamp: formatNow(),
+                  response,
+                };
+                setMessages(prev =>
+                  prev.map(m => m.id === streamingMsgId ? finalMsg : m)
+                );
+                setSelectedMessage(finalMsg);
+
+                setAuditLog(prev =>
+                  prev.map(e => e.id === auditEntry.id
+                    ? { ...e, riskLevel: response.riskLevel, confidence: response.confidence }
+                    : e
+                  )
+                );
+              }
+            } catch {
+              // skip unparseable
+            }
+          }
+        }
       } catch (err: any) {
         console.error("Copilot error:", err);
         const errorMsg = err?.message || "Analysis failed. Please try again.";
         toast.error(errorMsg);
-        const fallbackMsg: Message = {
-          id: `msg-${Date.now()}`,
-          role: "assistant",
-          content: `Error: ${errorMsg}`,
-          timestamp: formatNow(),
-        };
-        setMessages(prev => [...prev, fallbackMsg]);
+        setMessages(prev =>
+          prev.map(m => m.id === streamingMsgId ? { ...m, content: `Error: ${errorMsg}` } : m)
+        );
       } finally {
         setIsProcessing(false);
       }
@@ -358,7 +415,7 @@ export default function Copilot() {
               )}
 
               {/* Processing indicator */}
-              {isProcessing && (
+              {isProcessing && !messages.some(m => m.role === "assistant" && m.content && !m.response && m.id === messages[messages.length - 1]?.id) && (
                 <div className="flex justify-start">
                   <div className="bg-secondary/50 border border-border rounded-lg rounded-bl-sm px-3 py-2.5">
                     <div className="flex items-center gap-2">
