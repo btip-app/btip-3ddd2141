@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { useScrollParallax } from "@/hooks/useScrollParallax";
 
 const HeroSection = () => {
   const [mounted, setMounted] = useState(false);
+  const { scrollY, viewportHeight } = useScrollParallax();
 
   useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -13,14 +15,19 @@ const HeroSection = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Scanning line positions for the map
+  // Parallax factors — very restrained
+  const heroProgress = Math.min(scrollY / viewportHeight, 1);
+  const gridShift = heroProgress * 15;
+  const mapShift = heroProgress * -25;
+  const mapScale = 1 + heroProgress * 0.04;
+  const contentShift = heroProgress * 30;
+
   const scanLines = [
     { y1: 20, y2: 20, delay: 0 },
     { y1: 40, y2: 40, delay: 1.5 },
     { y1: 60, y2: 60, delay: 3 },
   ];
 
-  // Threat markers that pulse on the map
   const markers = [
     { cx: 52, cy: 35 },
     { cx: 48, cy: 52 },
@@ -31,24 +38,30 @@ const HeroSection = () => {
 
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
-      {/* Deep background */}
       <div className="absolute inset-0 bg-navy-deep" />
 
-      {/* Subtle grid texture */}
+      {/* Grid with subtle parallax drift */}
       <div
         className="absolute inset-0 opacity-[0.04]"
         style={{
           backgroundImage:
             "linear-gradient(hsl(var(--cyber) / 0.5) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--cyber) / 0.5) 1px, transparent 1px)",
           backgroundSize: "80px 80px",
+          transform: `translateY(${gridShift}px)`,
+          willChange: "transform",
         }}
       />
 
-      {/* Africa silhouette with scanning animation */}
+      {/* Africa silhouette — responds to scroll */}
       <svg
         viewBox="0 0 100 100"
-        className="absolute right-[10%] top-1/2 -translate-y-1/2 w-[40vw] max-w-[500px]"
-        style={{ opacity: mounted ? 0.06 : 0 , transition: "opacity 2s ease" }}
+        className="absolute right-[10%] top-1/2 w-[40vw] max-w-[500px]"
+        style={{
+          opacity: mounted ? 0.06 : 0,
+          transition: "opacity 2s ease",
+          transform: `translateY(calc(-50% + ${mapShift}px)) scale(${mapScale})`,
+          willChange: "transform",
+        }}
       >
         <path
           d="M45 15 Q55 12 58 18 L62 25 Q68 28 65 35 L68 42 Q70 48 68 55 L65 62 Q62 68 58 72 L55 78 Q50 82 45 78 L40 72 Q35 68 32 62 L28 55 Q25 48 28 42 L32 35 Q30 28 35 25 L40 18 Q42 15 45 15"
@@ -56,50 +69,35 @@ const HeroSection = () => {
           stroke="hsl(var(--cyber))"
           strokeWidth="0.3"
         />
-
-        {/* Horizontal scan lines */}
         {scanLines.map((line, i) => (
           <line
             key={i}
-            x1="25"
-            y1={line.y1}
-            x2="70"
-            y2={line.y2}
-            stroke="hsl(var(--cyber))"
-            strokeWidth="0.3"
-            opacity="0.6"
+            x1="25" y1={line.y1} x2="70" y2={line.y2}
+            stroke="hsl(var(--cyber))" strokeWidth="0.3" opacity="0.6"
             className="animate-hero-scan"
             style={{ animationDelay: `${line.delay}s` }}
           />
         ))}
-
-        {/* Threat markers with slow pulse */}
         {markers.map((m, i) => (
           <g key={i}>
-            <circle
-              cx={m.cx}
-              cy={m.cy}
-              r="1"
-              fill="hsl(var(--cyber))"
-              className="animate-marker-pulse"
-              style={{ animationDelay: `${i * 0.8}s` }}
-            />
-            <circle
-              cx={m.cx}
-              cy={m.cy}
-              r="3"
-              fill="none"
-              stroke="hsl(var(--cyber))"
-              strokeWidth="0.2"
-              className="animate-marker-ring"
-              style={{ animationDelay: `${i * 0.8}s` }}
-            />
+            <circle cx={m.cx} cy={m.cy} r="1" fill="hsl(var(--cyber))"
+              className="animate-marker-pulse" style={{ animationDelay: `${i * 0.8}s` }} />
+            <circle cx={m.cx} cy={m.cy} r="3" fill="none"
+              stroke="hsl(var(--cyber))" strokeWidth="0.2"
+              className="animate-marker-ring" style={{ animationDelay: `${i * 0.8}s` }} />
           </g>
         ))}
       </svg>
 
-      {/* Content */}
-      <div className="relative z-10 container mx-auto px-6 text-center">
+      {/* Content with counter-parallax */}
+      <div
+        className="relative z-10 container mx-auto px-6 text-center"
+        style={{
+          transform: `translateY(${contentShift}px)`,
+          opacity: Math.max(1 - heroProgress * 1.2, 0),
+          willChange: "transform, opacity",
+        }}
+      >
         <p
           className="text-xs uppercase tracking-[0.3em] text-muted-foreground font-mono mb-8"
           style={{
@@ -133,7 +131,6 @@ const HeroSection = () => {
         </p>
       </div>
 
-      {/* Bottom fade */}
       <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-background to-transparent" />
     </section>
   );

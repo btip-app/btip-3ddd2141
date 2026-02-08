@@ -8,7 +8,7 @@ import FooterV2 from "@/components/landing-v2/FooterV2";
 
 const LandingV2 = () => {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground scroll-smooth">
       <HeroSection />
       <ProblemSection />
       <SolutionSection />
