@@ -271,7 +271,29 @@ export default function DailyBrief() {
 
   const handleExport = () => {
     auditLog("REPORT_EXPORT", "Daily Intelligence Brief");
-    toast.success("Export initiated", { description: "Report export queued (mock)" });
+    // Build CSV export of current incidents
+    const csvRows = [
+      ['Title', 'Location', 'Category', 'Severity', 'Confidence', 'Status', 'DateTime'].join(','),
+      ...incidents.map(i =>
+        [
+          `"${i.title.replace(/"/g, '""')}"`,
+          `"${i.location}"`,
+          i.category,
+          i.severity,
+          i.confidence,
+          i.status,
+          i.datetime,
+        ].join(',')
+      ),
+    ];
+    const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `btip-daily-brief-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Export complete", { description: `${incidents.length} incidents exported to CSV` });
   };
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
