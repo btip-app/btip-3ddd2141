@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useMonitoredRegions } from '@/hooks/useMonitoredRegions';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { User, Building2, MapPin, Save, X, Plus } from 'lucide-react';
-import { AddRegionDialog, type MonitoredRegion } from '@/components/dashboard/AddRegionDialog';
+import { AddRegionDialog } from '@/components/dashboard/AddRegionDialog';
 
 export default function ProfileSettings() {
   const { user } = useAuth();
@@ -19,22 +20,7 @@ export default function ProfileSettings() {
   const [organization, setOrganization] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-
-  // Monitored regions (stored locally for now, can be persisted later)
-  const [monitoredRegions, setMonitoredRegions] = useState<MonitoredRegion[]>(() => {
-    const stored = localStorage.getItem(`btip-regions-${user?.id}`);
-    if (stored) {
-      try { return JSON.parse(stored); } catch { return []; }
-    }
-    // Default region
-    return [{
-      id: 'west-africa-ghana-all',
-      region: 'west-africa',
-      regionLabel: 'West Africa',
-      country: 'ghana',
-      countryLabel: 'Ghana',
-    }];
-  });
+  const { regions: monitoredRegions, loading: regionsLoading, addRegion, removeRegion } = useMonitoredRegions();
   const [addRegionOpen, setAddRegionOpen] = useState(false);
 
   useEffect(() => {
@@ -54,13 +40,6 @@ export default function ProfileSettings() {
       setLoading(false);
     })();
   }, [user]);
-
-  // Persist monitored regions to localStorage
-  useEffect(() => {
-    if (user?.id) {
-      localStorage.setItem(`btip-regions-${user.id}`, JSON.stringify(monitoredRegions));
-    }
-  }, [monitoredRegions, user?.id]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -82,13 +61,13 @@ export default function ProfileSettings() {
     setSaving(false);
   };
 
-  const handleAddRegion = (region: MonitoredRegion) => {
-    setMonitoredRegions(prev => [...prev, region]);
+  const handleAddRegion = async (region: Parameters<typeof addRegion>[0]) => {
+    await addRegion(region);
     toast.success('Region added', { description: `Now monitoring ${region.countryLabel}` });
   };
 
-  const handleRemoveRegion = (id: string) => {
-    setMonitoredRegions(prev => prev.filter(r => r.id !== id));
+  const handleRemoveRegion = async (id: string) => {
+    await removeRegion(id);
   };
 
   const getRoleBadgeColor = () => {
