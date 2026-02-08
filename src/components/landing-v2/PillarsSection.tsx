@@ -54,7 +54,7 @@ const PillarsSection = () => {
           {pillars.map((pillar, i) => (
             <div
               key={pillar.title}
-              className="border border-border rounded-lg bg-card p-6 flex flex-col gap-4"
+              className="border border-border rounded-lg bg-card p-6 flex flex-col gap-4 transition-[border-color,box-shadow] duration-500 ease-out hover:border-primary/30 hover:shadow-[0_0_20px_hsl(var(--primary)/0.06)]"
               style={{
                 opacity: isVisible ? 1 : 0,
                 transform: isVisible ? "translateY(0)" : "translateY(24px)",
