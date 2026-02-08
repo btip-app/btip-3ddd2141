@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const HeroSection = () => {
   const threatMarkers = [
     { id: 1, cx: 52, cy: 35, city: "Cairo", level: "high" },
@@ -43,12 +45,12 @@ const HeroSection = () => {
               Real-time monitoring, predictive analytics, and actionable insights.
             </p>
             <div className="flex flex-wrap gap-4 animate-fade-in-up opacity-0 [animation-delay:0.5s] [animation-fill-mode:forwards]">
-              <button className="px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium">
+              <Link to="/auth" className="px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors">
                 Request Early Access
-              </button>
-              <button className="px-6 py-3 rounded-md border border-border text-foreground font-medium">
-                Watch Demo
-              </button>
+              </Link>
+              <Link to="/v2#solution" className="px-6 py-3 rounded-md border border-border text-foreground font-medium hover:bg-secondary transition-colors">
+                Learn More
+              </Link>
             </div>
           </div>
           

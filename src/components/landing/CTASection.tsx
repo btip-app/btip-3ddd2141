@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const CTASection = () => {
   return (
     <section className="py-24 bg-background">
@@ -11,14 +13,18 @@ const CTASection = () => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <input 
-              type="email"
-              placeholder="Enter your work email"
-              className="w-full sm:w-auto px-4 py-3 rounded-md bg-secondary border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button className="w-full sm:w-auto px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium">
+            <Link
+              to="/auth"
+              className="w-full sm:w-auto px-6 py-3 rounded-md bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors text-center"
+            >
               Request Access
-            </button>
+            </Link>
+            <Link
+              to="/auth"
+              className="w-full sm:w-auto px-6 py-3 rounded-md border border-border text-foreground font-medium hover:bg-secondary transition-colors text-center"
+            >
+              Sign In
+            </Link>
           </div>
           
           <p className="text-xs text-muted-foreground mt-4">

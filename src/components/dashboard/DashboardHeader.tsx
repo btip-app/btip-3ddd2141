@@ -3,10 +3,9 @@ import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { NotificationBell } from './NotificationBell';
+import { ProfileDropdown } from './ProfileDropdown';
 
 export function DashboardHeader() {
-  const { user } = useAuth();
-
   return (
     <header className="h-12 border-b border-border bg-card flex items-center justify-between px-4 gap-4">
       <div className="flex items-center gap-4">
@@ -32,15 +31,8 @@ export function DashboardHeader() {
         {/* Notifications */}
         <NotificationBell />
 
-        {/* User */}
-        <div className="flex items-center gap-2 pl-2 border-l border-border">
-          <div className="h-7 w-7 rounded bg-primary/20 flex items-center justify-center text-[10px] font-mono font-bold text-primary">
-            {user?.email?.charAt(0).toUpperCase() || 'U'}
-          </div>
-          <span className="text-xs text-muted-foreground hidden sm:block font-mono">
-            {user?.email?.split('@')[0] || 'user'}
-          </span>
-        </div>
+        {/* User Profile Dropdown */}
+        <ProfileDropdown />
       </div>
     </header>
   );

@@ -1,6 +1,10 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import BriefingModal from "./BriefingModal";
 
 const FooterV2 = () => {
+  const [briefingOpen, setBriefingOpen] = useState(false);
+
   return (
     <footer className="py-10 border-t border-border bg-navy-deep">
       <div className="container mx-auto px-6">
@@ -22,15 +26,12 @@ const FooterV2 = () => {
             >
               Get Started
             </Link>
-            <button className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors duration-300">
+            <button
+              onClick={() => setBriefingOpen(true)}
+              className="text-xs font-mono text-muted-foreground hover:text-foreground transition-colors duration-300"
+            >
               Request Briefing
             </button>
-            <span className="text-xs font-mono text-muted-foreground/50 cursor-default">
-              Privacy
-            </span>
-            <span className="text-xs font-mono text-muted-foreground/50 cursor-default">
-              Legal
-            </span>
           </nav>
 
           <span className="text-xs font-mono text-muted-foreground hidden sm:block">
@@ -38,6 +39,7 @@ const FooterV2 = () => {
           </span>
         </div>
       </div>
+      <BriefingModal open={briefingOpen} onOpenChange={setBriefingOpen} />
     </footer>
   );
 };
