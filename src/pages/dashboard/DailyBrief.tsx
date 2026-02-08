@@ -2,6 +2,8 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useUserRole } from "@/hooks/useUserRole";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
@@ -26,7 +28,6 @@ import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
-import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -50,201 +51,7 @@ const THREAT_CATEGORIES = [
   { id: "piracy", label: "Piracy / Maritime" },
 ];
 
-type IncidentStatus = "ai" | "reviewed" | "confirmed";
-
-interface Incident {
-  id: string;
-  title: string;
-  datetime: string;
-  location: string;
-  severity: number;
-  confidence: number;
-  status: IncidentStatus;
-  category: string;
-  region: string;
-  country?: string;
-  subdivision?: string;
-  trend?: string;
-  summary?: string;
-  sources?: string[];
-  analyst?: string;
-}
-
-// Static mock incidents with extended data
-const mockIncidents: Incident[] = [
-  {
-    id: "1",
-    title: "Armed Robbery Ring Targeting Commercial Vehicles",
-    datetime: "2026-01-30 06:45",
-    location: "Lagos, Nigeria",
-    severity: 4,
-    confidence: 87,
-    status: "confirmed",
-    category: "robbery",
-    region: "west-africa",
-    country: "nigeria",
-    subdivision: "lagos",
-    summary: "Multiple coordinated attacks on commercial vehicles along the Lagos-Ibadan expressway. Criminal group using roadblocks and armed personnel. Three incidents in past 48 hours.",
-    sources: ["Local Police Report", "Field Agent LAGOS-07", "Media Monitoring"],
-    analyst: "J. Okonkwo",
-  },
-  {
-    id: "2",
-    title: "Kidnapping Threat Near Industrial Zone",
-    datetime: "2026-01-30 05:30",
-    location: "Port Harcourt, Nigeria",
-    severity: 5,
-    confidence: 72,
-    status: "reviewed",
-    category: "kidnapping",
-    region: "west-africa",
-    country: "nigeria",
-    subdivision: "rivers",
-    summary: "Intelligence suggests targeted kidnapping operation planned against expatriate workers in the Trans-Amadi industrial area. Source reliability: B2.",
-    sources: ["HUMINT Source PH-12", "Pattern Analysis"],
-    analyst: "M. Adeyemi",
-  },
-  {
-    id: "3",
-    title: "Protest Activity Disrupting Supply Routes",
-    datetime: "2026-01-30 04:15",
-    location: "Nairobi, Kenya",
-    severity: 3,
-    confidence: 94,
-    status: "confirmed",
-    category: "protest",
-    region: "east-africa",
-    country: "kenya",
-    subdivision: "nairobi",
-    summary: "Labor union protests blocking Mombasa Road affecting cargo movement from port. Expected to continue for 24-48 hours pending negotiations.",
-    sources: ["Ground Team NBO", "Traffic Monitoring", "Social Media Intel"],
-    analyst: "P. Kimani",
-  },
-  {
-    id: "4",
-    title: "Suspicious Activity Near Port Facility",
-    datetime: "2026-01-29 22:00",
-    location: "Mombasa, Kenya",
-    severity: 2,
-    confidence: 65,
-    status: "ai",
-    category: "robbery",
-    region: "east-africa",
-    country: "kenya",
-    subdivision: "mombasa",
-    summary: "AI-flagged pattern of unusual vehicle movements near port storage facilities. Requires human verification.",
-    sources: ["CCTV Analysis", "Pattern Recognition AI"],
-    analyst: "Pending Review",
-  },
-  {
-    id: "5",
-    title: "Civil Unrest Following Election Results",
-    datetime: "2026-01-29 18:30",
-    location: "Johannesburg, South Africa",
-    severity: 4,
-    confidence: 91,
-    status: "reviewed",
-    category: "political",
-    region: "southern-africa",
-    country: "south-africa",
-    subdivision: "gauteng",
-    summary: "Post-election tensions escalating in multiple townships. Isolated incidents of property damage reported. Security forces on heightened alert.",
-    sources: ["Embassy Cables", "Local Media", "Field Team JNB"],
-    analyst: "R. van der Berg",
-  },
-];
-const trendingIncidents: Incident[] = [
-  {
-    id: "6",
-    title: "Escalating Militia Activity in Northern Region",
-    datetime: "2026-01-30 03:00",
-    location: "Kano, Nigeria",
-    severity: 5,
-    confidence: 78,
-    status: "ai",
-    trend: "+12%",
-    category: "terrorism",
-    region: "west-africa",
-    country: "nigeria",
-    subdivision: "kano",
-    summary: "Increased movement patterns detected consistent with militant group operations. Cross-referencing with known faction territories.",
-    sources: ["Satellite Imagery", "SIGINT", "Regional Partners"],
-    analyst: "Pending Review",
-  },
-  {
-    id: "7",
-    title: "Increased Piracy Risk in Gulf Waters",
-    datetime: "2026-01-30 01:45",
-    location: "Gulf of Guinea",
-    severity: 4,
-    confidence: 83,
-    status: "reviewed",
-    trend: "+8%",
-    category: "piracy",
-    region: "west-africa",
-    country: "nigeria",
-    summary: "Maritime patrols report increased small vessel activity. Two attempted boardings in past week. Recommend enhanced escort protocols.",
-    sources: ["IMB Report", "Navy Liaison", "Shipping Intel Network"],
-    analyst: "C. Mensah",
-  },
-  {
-    id: "8",
-    title: "Political Tensions Rising Ahead of Summit",
-    datetime: "2026-01-29 20:00",
-    location: "Addis Ababa, Ethiopia",
-    severity: 3,
-    confidence: 69,
-    status: "ai",
-    trend: "+5%",
-    category: "political",
-    region: "east-africa",
-    country: "ethiopia",
-    subdivision: "addis-ababa",
-    summary: "Social media analysis indicates rising tensions ahead of AU summit. Protest activity possible near diplomatic quarter.",
-    sources: ["Social Media Analysis", "Open Source Intel"],
-    analyst: "Pending Review",
-  },
-];
-
-const myRegionIncidents: Incident[] = [
-  {
-    id: "9",
-    title: "Road Blockade by Local Groups",
-    datetime: "2026-01-30 07:00",
-    location: "Accra, Ghana",
-    severity: 2,
-    confidence: 88,
-    status: "confirmed",
-    category: "protest",
-    region: "west-africa",
-    country: "ghana",
-    subdivision: "greater-accra",
-    summary: "Community groups blocking access road near Tema junction. Dispute over local infrastructure project. Police negotiating.",
-    sources: ["Ground Team ACC", "Local Contacts"],
-    analyst: "K. Asante",
-  },
-  {
-    id: "10",
-    title: "Theft Incidents at Warehouse District",
-    datetime: "2026-01-29 23:30",
-    location: "Tema, Ghana",
-    severity: 3,
-    confidence: 76,
-    status: "reviewed",
-    category: "robbery",
-    region: "west-africa",
-    country: "ghana",
-    subdivision: "greater-accra",
-    summary: "Series of break-ins targeting industrial warehouses. Organized group suspected. Enhanced security measures recommended.",
-    sources: ["Police Report", "Security Contractor"],
-    analyst: "K. Asante",
-  },
-];
-
-
-
-// Combine all incidents for lookup
-const allIncidents = [...mockIncidents, ...trendingIncidents, ...myRegionIncidents];
+// (Incident type imported from useIncidents hook)
 
 function getSeverityColor(severity: number) {
   switch (severity) {
@@ -271,7 +78,7 @@ function getSeverityLabel(severity: number) {
   }
 }
 
-function getStatusColor(status: IncidentStatus) {
+function getStatusColor(status: string) {
   switch (status) {
     case "confirmed":
       return "bg-emerald-600/20 text-emerald-400 border-emerald-600/50";
@@ -282,7 +89,7 @@ function getStatusColor(status: IncidentStatus) {
   }
 }
 
-function getStatusLabel(status: IncidentStatus) {
+function getStatusLabel(status: string) {
   switch (status) {
     case "confirmed":
       return "CONFIRMED";
@@ -320,7 +127,7 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
       <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground mb-2">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
-          {incident.datetime}
+          {new Date(incident.datetime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
         </span>
         <span className="flex items-center gap-1">
           <MapPin className="h-3 w-3" />
@@ -381,7 +188,7 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
           <div className="text-muted-foreground mb-1">TIMESTAMP</div>
           <div className="flex items-center gap-1 text-foreground">
             <Clock className="h-3 w-3" />
-            {incident.datetime}
+            {new Date(incident.datetime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
         <div>
@@ -456,6 +263,7 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
 export default function DailyBrief() {
   const { role, isExecutive } = useUserRole();
   const { log: auditLog } = useAuditLog();
+  const { incidents, loading: incidentsLoading } = useIncidents();
   const [addRegionOpen, setAddRegionOpen] = useState(false);
   const { regions: monitoredRegions, addRegion, removeRegion } = useMonitoredRegions();
 
@@ -521,14 +329,24 @@ export default function DailyBrief() {
   };
 
   const filteredTopThreats = useMemo(() => {
-    return mockIncidents.filter(matchesGeoFilters);
-  }, [selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
+    return incidents.filter(i => i.section === 'top_threats' && !i.trend).filter(matchesGeoFilters);
+  }, [incidents, selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
   const filteredTrending = useMemo(() => {
-    return trendingIncidents.filter(matchesGeoFilters);
-  }, [selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
+    return incidents.filter(i => i.section === 'trending' || i.trend).filter(matchesGeoFilters);
+  }, [incidents, selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
-  const selectedIncident = allIncidents.find(i => i.id === selectedIncidentId) || null;
+  const myRegionIncidents = useMemo(() => {
+    if (monitoredRegions.length === 0) return [];
+    return incidents.filter(i =>
+      monitoredRegions.some(r =>
+        r.country === i.country &&
+        (!r.subdivision || r.subdivision === i.subdivision)
+      )
+    );
+  }, [incidents, monitoredRegions]);
+
+  const selectedIncident = incidents.find(i => i.id === selectedIncidentId) || null;
 
   return (
     <div className="space-y-4">
@@ -540,7 +358,7 @@ export default function DailyBrief() {
             Daily Intelligence Brief
           </h1>
           <p className="text-muted-foreground text-[10px] font-mono mt-0.5">
-            Operational threat summary • Last updated: {new Date().toLocaleTimeString()}
+            {incidentsLoading ? 'Loading...' : `Operational threat summary • Last updated: ${new Date().toLocaleTimeString()}`}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -722,9 +540,11 @@ export default function DailyBrief() {
           <CardTitle className="text-sm font-mono flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             MY REGIONS
-            <span className="text-[10px] font-normal text-muted-foreground ml-2">
-              [Ghana • West Africa]
-            </span>
+            {monitoredRegions.length > 0 && (
+              <span className="text-[10px] font-normal text-muted-foreground ml-2">
+                [{monitoredRegions.map(r => r.countryLabel).join(' • ')}]
+              </span>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 pt-0">

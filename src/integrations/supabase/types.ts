@@ -53,6 +53,69 @@ export type Database = {
         }
         Relationships: []
       }
+      incidents: {
+        Row: {
+          analyst: string | null
+          category: string
+          confidence: number
+          country: string | null
+          created_at: string
+          datetime: string
+          id: string
+          location: string
+          region: string
+          section: string
+          severity: number
+          sources: string[] | null
+          status: Database["public"]["Enums"]["incident_status"]
+          subdivision: string | null
+          summary: string | null
+          title: string
+          trend: string | null
+          updated_at: string
+        }
+        Insert: {
+          analyst?: string | null
+          category: string
+          confidence: number
+          country?: string | null
+          created_at?: string
+          datetime?: string
+          id?: string
+          location: string
+          region: string
+          section?: string
+          severity: number
+          sources?: string[] | null
+          status?: Database["public"]["Enums"]["incident_status"]
+          subdivision?: string | null
+          summary?: string | null
+          title: string
+          trend?: string | null
+          updated_at?: string
+        }
+        Update: {
+          analyst?: string | null
+          category?: string
+          confidence?: number
+          country?: string | null
+          created_at?: string
+          datetime?: string
+          id?: string
+          location?: string
+          region?: string
+          section?: string
+          severity?: number
+          sources?: string[] | null
+          status?: Database["public"]["Enums"]["incident_status"]
+          subdivision?: string | null
+          summary?: string | null
+          title?: string
+          trend?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       monitored_regions: {
         Row: {
           country: string
@@ -223,6 +286,7 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "analyst" | "operator" | "viewer" | "executive"
+      incident_status: "ai" | "reviewed" | "confirmed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -351,6 +415,7 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "analyst", "operator", "viewer", "executive"],
+      incident_status: ["ai", "reviewed", "confirmed"],
     },
   },
 } as const
