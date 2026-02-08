@@ -167,3 +167,50 @@
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--muted-foreground));
 }
+
+/* Print styles for incident reports */
+@media print {
+  /* Hide non-essential UI */
+  .no-print,
+  nav,
+  aside,
+  header,
+  [data-sidebar],
+  .sonner-toaster {
+    display: none !important;
+  }
+
+  /* Show print-only elements */
+  .print-only {
+    display: block !important;
+  }
+
+  /* Reset page for clean print */
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11px;
+  }
+
+  .print-report {
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    color: black !important;
+  }
+
+  .print-report * {
+    color: black !important;
+    border-color: #ccc !important;
+  }
+
+  .print-report .bg-secondary\/30,
+  .print-report .bg-card {
+    background: #f5f5f5 !important;
+  }
+
+  @page {
+    margin: 1.5cm;
+    size: A4;
+  }
+}
