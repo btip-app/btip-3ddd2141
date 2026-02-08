@@ -69,6 +69,35 @@ export default function Escalations() {
 
   useEffect(() => {
     fetchEscalations();
+
+    const channel = supabase
+      .channel("escalations-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "escalations" },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setEscalations((prev) => [payload.new as Escalation, ...prev]);
+          } else if (payload.eventType === "UPDATE") {
+            setEscalations((prev) =>
+              prev.map((e) =>
+                e.id === (payload.new as Escalation).id
+                  ? (payload.new as Escalation)
+                  : e
+              )
+            );
+          } else if (payload.eventType === "DELETE") {
+            setEscalations((prev) =>
+              prev.filter((e) => e.id !== (payload.old as { id: string }).id)
+            );
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const updateStatus = async (id: string, newStatus: string) => {
