@@ -14,6 +14,7 @@ import {
   Brain,
   CheckCircle2,
   ClipboardList,
+  Copy,
   ExternalLink,
   FileText,
   Info,
@@ -155,6 +156,16 @@ export default function Copilot() {
         const { data: sessionData } = await supabase.auth.getSession();
         const token = sessionData?.session?.access_token;
 
+        // Build conversation history from previous messages
+        const history = messages
+          .filter(m => m.content && !m.content.startsWith("Error:"))
+          .map(m => ({
+            role: m.role,
+            content: m.role === "assistant" && m.response
+              ? m.response.summary
+              : m.content,
+          }));
+
         const res = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/copilot-analyze`,
           {
@@ -164,7 +175,7 @@ export default function Copilot() {
               Authorization: `Bearer ${token}`,
               apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             },
-            body: JSON.stringify({ query }),
+            body: JSON.stringify({ query, history }),
           }
         );
 
@@ -244,6 +255,28 @@ export default function Copilot() {
         setIsProcessing(false);
       }
     })();
+  }
+
+  function copyAnalysis(msg: Message) {
+    if (!msg.response) return;
+    const r = msg.response;
+    const text = [
+      `RISK LEVEL: ${r.riskLevel.toUpperCase()} | Confidence: ${r.confidence}%`,
+      "",
+      `SUMMARY: ${r.summary}`,
+      "",
+      "EVIDENCE:",
+      ...r.evidence.map((e, i) => `  ${i + 1}. ${e}`),
+      "",
+      "RECOMMENDATIONS:",
+      ...r.recommendations.map((rec, i) => `  ${i + 1}. ${rec}`),
+      ...(r.linkedIncidents.length > 0
+        ? ["", "LINKED INCIDENTS:", ...r.linkedIncidents.map(inc => `  - ${inc.title} (Severity: ${inc.severity})`)]
+        : []),
+      "",
+      "⚠ Decision-support only. Not a guarantee.",
+    ].join("\n");
+    navigator.clipboard.writeText(text).then(() => toast.success("Analysis copied to clipboard"));
   }
 
   function handleSuggestion(query: string) {
@@ -404,7 +437,17 @@ export default function Copilot() {
                           <span className="text-[8px] font-mono text-muted-foreground">
                             {msg.response.linkedIncidents.length} linked incidents
                           </span>
-                          <span className="text-[8px] font-mono text-primary ml-auto flex items-center gap-1">
+                          <button
+                            className="text-[8px] font-mono text-muted-foreground hover:text-primary ml-auto flex items-center gap-1 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); copyAnalysis(msg); }}
+                            title="Copy analysis"
+                          >
+                            <Copy className="h-2.5 w-2.5" /> copy
+                          </button>
+                          <span
+                            className="text-[8px] font-mono text-primary flex items-center gap-1 cursor-pointer"
+                            onClick={() => setSelectedMessage(msg)}
+                          >
                             <ExternalLink className="h-2.5 w-2.5" /> details
                           </span>
                         </div>
@@ -464,11 +507,21 @@ export default function Copilot() {
 
         {/* Right: Evidence & Sources */}
         <Card className="w-[360px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
-          <div className="px-4 pt-3 pb-2">
+          <div className="px-4 pt-3 pb-2 flex items-center justify-between">
             <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
               <FileText className="h-3.5 w-3.5 text-primary" />
               EVIDENCE & SOURCES
             </h2>
+            {selectedMessage?.response && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[9px] font-mono text-muted-foreground hover:text-primary px-2"
+                onClick={() => selectedMessage && copyAnalysis(selectedMessage)}
+              >
+                <Copy className="h-3 w-3 mr-1" /> Copy
+              </Button>
+            )}
           </div>
           <Separator />
 

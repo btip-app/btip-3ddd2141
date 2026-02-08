@@ -36,13 +36,14 @@ serve(async (req) => {
       });
     }
 
-    const { query } = await req.json();
+    const { query, history } = await req.json();
     if (!query || typeof query !== "string") {
       return new Response(JSON.stringify({ error: "Missing query" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+    const conversationHistory: { role: string; content: string }[] = Array.isArray(history) ? history : [];
 
     console.log(`Copilot query from user ${user.id}: ${query}`);
 
@@ -110,6 +111,10 @@ GUIDELINES:
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
+          ...conversationHistory.slice(-10).map((m: any) => ({
+            role: m.role === "user" ? "user" : "assistant",
+            content: m.content,
+          })),
           { role: "user", content: query },
         ],
         temperature: 0.3,
