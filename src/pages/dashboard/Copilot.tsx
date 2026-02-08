@@ -1,5 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { useAuditLog } from "@/hooks/useAuditLog";
+import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,103 +60,83 @@ interface AuditEntry {
   timestamp: string;
 }
 
-// --- Mock response bank ---
+// --- Live data analysis engine ---
 
-const MOCK_RESPONSES: Record<string, CopilotResponse> = {
-  lagos: {
-    riskLevel: "high",
-    confidence: 82,
-    summary: "Lagos metropolitan area shows elevated threat activity over the past 72 hours. Multiple armed robbery incidents reported near Victoria Island and Lekki corridors. Pattern suggests coordinated targeting of commercial vehicles during early morning hours.",
-    evidence: [
-      "3 armed robbery incidents within 5km of Lagos HQ in past 48h",
-      "Carjacking reported 2.1km from Exec Residence - VI",
-      "SIGINT intercept suggests organized criminal network activity",
-      "Social media monitoring flagged 12 related posts in Ikoyi area",
-    ],
-    recommendations: [
-      "Elevate security posture for Lagos HQ to Level 3",
-      "Restrict non-essential vehicle movements before 0700 and after 2100",
-      "Brief executive protection team on updated threat vectors",
-      "Consider temporary route diversions for VI-Lekki corridor",
-    ],
-    linkedIncidents: [
-      { id: "i1", title: "Armed Robbery - Commercial Vehicles", severity: 4 },
-      { id: "i9", title: "Carjacking Near Ikoyi", severity: 4 },
-      { id: "i8", title: "Civil Unrest - Market Area", severity: 3 },
-    ],
-  },
-  route: {
-    riskLevel: "medium",
-    confidence: 71,
-    summary: "The Lagos–Abuja express corridor has moderate risk. Highway banditry reports near Lokoja waypoint persist. No direct threats to convoy movements detected, but pattern analysis suggests increased activity on weekends.",
-    evidence: [
-      "Highway banditry report 8km from Lokoja Waypoint",
-      "2 road blockade incidents on alternative routes in past 7 days",
-      "Local security contacts report militia movement near Kabba junction",
-      "No direct threats intercepted against identified convoys",
-    ],
-    recommendations: [
-      "Maintain armed escort for executive travel on this route",
-      "Schedule movements during 0800–1400 window for optimal security",
-      "Pre-position response assets at Ibadan Checkpoint",
-      "Consider air transport for high-priority personnel",
-    ],
-    linkedIncidents: [
-      { id: "i11", title: "Highway Banditry Report", severity: 3 },
-      { id: "i4", title: "Political Demonstration", severity: 2 },
-    ],
-  },
-  phc: {
-    riskLevel: "critical",
-    confidence: 88,
-    summary: "Port Harcourt / Rivers State region presents critical risk. Kidnapping threat intelligence targeting industrial zone personnel is assessed as credible. Pipeline vandalism attempts have increased, and a severity escalation was recorded in the past 24 hours.",
-    evidence: [
-      "SIGINT intercept confirming kidnapping planning against industrial workers",
-      "Pipeline vandalism attempt 3km from PHC Refinery Complex",
-      "Severity escalation from level 3 to 5 recorded at 2026-02-07 10:15",
-      "3 incidents within 10km radius of Bonny Island Terminal in 7 days",
-      "Partner agency issued regional travel advisory",
-    ],
-    recommendations: [
-      "Elevate PHC Refinery Complex to maximum security posture immediately",
-      "Suspend non-essential staff travel to Rivers State",
-      "Activate emergency evacuation plan for Bonny Island Terminal",
-      "Coordinate with naval patrol for maritime corridor protection",
-      "Brief all personnel on duress protocols and safe room procedures",
-    ],
-    linkedIncidents: [
-      { id: "i2", title: "Kidnapping Threat - Industrial Zone", severity: 5 },
-      { id: "i10", title: "Pipeline Vandalism Attempt", severity: 4 },
-      { id: "i7", title: "Suspicious Vessel Activity", severity: 3 },
-    ],
-  },
-  default: {
-    riskLevel: "low",
-    confidence: 65,
-    summary: "Based on available intelligence, no immediate threats have been identified for the specified area or topic. Baseline monitoring continues. Current threat posture remains at standard operating levels.",
-    evidence: [
-      "No incidents reported within specified parameters in past 48h",
-      "Open source monitoring shows normal activity levels",
-      "No relevant SIGINT intercepts detected",
-    ],
-    recommendations: [
-      "Maintain standard security protocols",
-      "Continue routine monitoring cycles",
-      "Review threat assessment at next scheduled interval",
-    ],
-    linkedIncidents: [],
-  },
-};
-
-function matchResponse(query: string): CopilotResponse {
+function analyzeIncidents(query: string, incidents: Incident[]): CopilotResponse {
   const q = query.toLowerCase();
-  if (q.includes("lagos") || q.includes("lekki") || q.includes("vi") || q.includes("victoria island") || q.includes("hq"))
-    return MOCK_RESPONSES.lagos;
-  if (q.includes("route") || q.includes("abuja") || q.includes("corridor") || q.includes("travel") || q.includes("convoy"))
-    return MOCK_RESPONSES.route;
-  if (q.includes("port harcourt") || q.includes("phc") || q.includes("bonny") || q.includes("refinery") || q.includes("rivers") || q.includes("pipeline") || q.includes("kidnap"))
-    return MOCK_RESPONSES.phc;
-  return MOCK_RESPONSES.default;
+
+  // Filter incidents relevant to query by keyword matching on location, category, title, region, country
+  const relevant = incidents.filter(inc => {
+    const haystack = `${inc.title} ${inc.location} ${inc.category} ${inc.region} ${inc.country || ""} ${inc.subdivision || ""} ${inc.summary || ""}`.toLowerCase();
+    // Extract meaningful words from query (>2 chars)
+    const keywords = q.split(/\s+/).filter(w => w.length > 2 && !["the", "what", "how", "are", "for", "and", "near", "around", "along", "about", "current", "level", "assess", "risk", "threat", "evaluate", "security", "posture"].includes(w));
+    return keywords.some(kw => haystack.includes(kw));
+  });
+
+  const pool = relevant.length > 0 ? relevant : incidents.slice(0, 5);
+  const maxSeverity = Math.max(...pool.map(i => i.severity), 1);
+  const avgSeverity = pool.reduce((s, i) => s + i.severity, 0) / (pool.length || 1);
+  const avgConfidence = pool.reduce((s, i) => s + i.confidence, 0) / (pool.length || 1);
+
+  // Determine risk level
+  let riskLevel: RiskLevel = "low";
+  if (maxSeverity >= 5 || avgSeverity >= 4) riskLevel = "critical";
+  else if (maxSeverity >= 4 || avgSeverity >= 3) riskLevel = "high";
+  else if (maxSeverity >= 3 || avgSeverity >= 2) riskLevel = "medium";
+
+  const confidence = Math.round(avgConfidence);
+
+  // Build evidence from actual incidents
+  const evidence = pool.slice(0, 6).map(inc => {
+    const timeAgo = getTimeAgo(inc.datetime);
+    return `${inc.title} — ${inc.location}, severity ${inc.severity}/5, ${inc.confidence}% confidence (${timeAgo})`;
+  });
+
+  if (pool.length > 6) {
+    evidence.push(`+ ${pool.length - 6} additional incidents in dataset`);
+  }
+
+  // Generate contextual recommendations
+  const recommendations: string[] = [];
+  if (maxSeverity >= 5) {
+    recommendations.push("Elevate security posture to maximum immediately for affected areas");
+    recommendations.push("Consider suspending non-essential personnel movements");
+  }
+  if (maxSeverity >= 4) {
+    recommendations.push("Brief executive protection teams on updated threat vectors");
+    recommendations.push("Review and restrict vehicle movements during high-risk hours");
+  }
+  if (pool.some(i => i.category.toLowerCase().includes("kidnap"))) {
+    recommendations.push("Activate duress protocols and safe room procedures for at-risk personnel");
+  }
+  if (pool.some(i => i.category.toLowerCase().includes("piracy") || i.category.toLowerCase().includes("maritime"))) {
+    recommendations.push("Coordinate with naval patrol for maritime corridor protection");
+  }
+  recommendations.push("Continue routine monitoring and reassess at next scheduled interval");
+
+  // Build summary
+  const locations = [...new Set(pool.map(i => i.location))].slice(0, 3).join(", ");
+  const categories = [...new Set(pool.map(i => i.category))].slice(0, 3).join(", ");
+  const summary = relevant.length > 0
+    ? `Analysis identified ${pool.length} relevant incident${pool.length !== 1 ? "s" : ""} across ${locations}. Primary threat categories: ${categories}. Maximum severity: ${maxSeverity}/5. Average confidence: ${confidence}%. ${riskLevel === "critical" ? "Immediate action recommended." : riskLevel === "high" ? "Elevated vigilance advised." : "Standard monitoring sufficient."}`
+    : `No incidents directly matching your query were found. Showing top recent incidents for context. ${pool.length} incidents analyzed across the operational area. Current baseline threat posture remains at standard levels.`;
+
+  const linkedIncidents: LinkedIncident[] = pool.slice(0, 5).map(i => ({
+    id: i.id,
+    title: i.title,
+    severity: i.severity,
+  }));
+
+  return { riskLevel, confidence, summary, evidence, recommendations, linkedIncidents };
+}
+
+function getTimeAgo(datetime: string): string {
+  const diff = Date.now() - new Date(datetime).getTime();
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 1) return "< 1h ago";
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
 }
 
 function formatNow() {
@@ -187,11 +168,12 @@ const SUGGESTED_QUERIES = [
   "Are there kidnapping threats near Bonny Island?",
 ];
 
-const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Assessments are based on available mock data and should be validated against ground-truth sources before operational use.";
+const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Assessments are based on live incident data and should be validated against ground-truth sources before operational use.";
 
 // --- Component ---
 
 export default function Copilot() {
+  const { incidents } = useIncidents();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -236,7 +218,7 @@ export default function Copilot() {
     // Simulate processing delay (1.5–3s)
     const delay = 1500 + Math.random() * 1500;
     setTimeout(() => {
-      const response = matchResponse(query);
+      const response = analyzeIncidents(query, incidents);
       const assistantMsg: Message = {
         id: `msg-${Date.now()}`,
         role: "assistant",
@@ -273,7 +255,7 @@ export default function Copilot() {
           <div>
             <h1 className="text-xl font-mono font-bold text-foreground">Copilot</h1>
             <p className="text-muted-foreground text-[10px] font-mono">
-              Decision support system • Mock responses active
+              Decision support system • Live incident data
             </p>
           </div>
         </div>
@@ -399,7 +381,7 @@ export default function Copilot() {
                         <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-accent/5 border border-accent/10">
                           <Info className="h-2.5 w-2.5 text-accent/60 mt-0.5 flex-shrink-0" />
                           <span className="text-[7px] font-mono text-accent/60 leading-relaxed">
-                            Mock intelligence assessment — not a guarantee of safety. Validate before operational use.
+                            Intelligence assessment — not a guarantee of safety. Validate before operational use.
                           </span>
                         </div>
                       )}
@@ -468,7 +450,7 @@ export default function Copilot() {
                 </Button>
               </div>
               <p className="text-[8px] font-mono text-muted-foreground/50 mt-1.5">
-                Press Enter to send • Shift+Enter for new line • Mock responses only
+                Press Enter to send • Shift+Enter for new line • Live data
               </p>
             </div>
           </Card>
@@ -573,7 +555,7 @@ export default function Copilot() {
                 <div className="text-[8px] font-mono text-muted-foreground/50 space-y-0.5">
                   <div>Analysis ID: {selectedMessage.id}</div>
                   <div>Generated: {selectedMessage.timestamp}</div>
-                  <div>Data source: Mock intelligence feed</div>
+                  <div>Data source: Live incident database</div>
                   <div className="mt-1.5 pt-1.5 border-t border-border/30 text-accent/50">
                     ⚠ Decision-support only. Not a guarantee.
                   </div>
