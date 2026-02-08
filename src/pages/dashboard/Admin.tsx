@@ -1,15 +1,119 @@
+import { useState, useEffect, useMemo } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Separator } from '@/components/ui/separator';
+import { toast } from 'sonner';
+import { Settings, Users, Shield, Loader2 } from 'lucide-react';
+
+interface UserWithRole {
+  user_id: string;
+  role: string;
+  full_name: string | null;
+  email: string;
+  organization: string | null;
+  created_at: string;
+}
+
+const ROLE_COLORS: Record<string, string> = {
+  admin: 'bg-destructive/20 text-destructive',
+  analyst: 'bg-primary/20 text-primary',
+  operator: 'bg-amber-500/20 text-amber-400',
+  executive: 'bg-blue-500/20 text-blue-400',
+  viewer: 'bg-muted text-muted-foreground',
+};
+
+const VALID_ROLES = ['admin', 'analyst', 'operator', 'executive', 'viewer'];
 
 export default function Admin() {
-  const { isAdmin, loading } = useUserRole();
+  const { isAdmin, loading: roleLoading } = useUserRole();
+  const [users, setUsers] = useState<UserWithRole[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (!isAdmin) return;
+    fetchUsers();
+  }, [isAdmin]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+
+    // Fetch roles
+    const { data: roles, error: rolesErr } = await supabase
+      .from('user_roles')
+      .select('user_id, role, created_at')
+      .order('created_at', { ascending: true });
+
+    if (rolesErr) {
+      console.error('Failed to fetch roles:', rolesErr);
+      setLoading(false);
+      return;
+    }
+
+    // Fetch profiles for names & orgs
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('user_id, full_name, organization');
+
+    const profileMap = new Map(
+      (profiles || []).map(p => [p.user_id, p])
+    );
+
+    const merged: UserWithRole[] = (roles || []).map(r => {
+      const profile = profileMap.get(r.user_id);
+      return {
+        user_id: r.user_id,
+        role: r.role,
+        full_name: profile?.full_name || null,
+        email: r.user_id.slice(0, 8) + '…',
+        organization: profile?.organization || null,
+        created_at: r.created_at,
+      };
+    });
+
+    setUsers(merged);
+    setLoading(false);
+  };
+
+  const handleRoleChange = async (userId: string, newRole: string) => {
+    setUpdatingId(userId);
+    const { error } = await supabase
+      .from('user_roles')
+      .update({ role: newRole as any })
+      .eq('user_id', userId);
+
+    if (error) {
+      toast.error('Failed to update role', { description: error.message });
+    } else {
+      toast.success('Role updated');
+      setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, role: newRole } : u));
+    }
+    setUpdatingId(null);
+  };
+
+  if (roleLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
-        <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
-          Verifying admin access
-        </div>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
@@ -18,46 +122,116 @@ export default function Admin() {
     return <Navigate to="/dashboard/brief" replace />;
   }
 
+  const roleCounts = VALID_ROLES.reduce((acc, role) => {
+    acc[role] = users.filter(u => u.role === role).length;
+    return acc;
+  }, {} as Record<string, number>);
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-mono font-bold">Administration</h1>
-        <p className="text-muted-foreground text-xs font-mono">System configuration and user management</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-sm font-mono font-semibold mb-4">User Management</h2>
-          <div className="text-center py-8">
-            <div className="text-muted-foreground text-xs font-mono">[USER_MANAGEMENT]</div>
-            <div className="text-muted-foreground/50 text-[10px] font-mono">Awaiting implementation</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-sm font-mono font-semibold mb-4">Organization Settings</h2>
-          <div className="text-center py-8">
-            <div className="text-muted-foreground text-xs font-mono">[ORG_SETTINGS]</div>
-            <div className="text-muted-foreground/50 text-[10px] font-mono">Awaiting implementation</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-sm font-mono font-semibold mb-4">Role Configuration</h2>
-          <div className="text-center py-8">
-            <div className="text-muted-foreground text-xs font-mono">[ROLE_CONFIG]</div>
-            <div className="text-muted-foreground/50 text-[10px] font-mono">Awaiting implementation</div>
-          </div>
-        </div>
-
-        <div className="bg-card border border-border rounded-lg p-6">
-          <h2 className="text-sm font-mono font-semibold mb-4">System Logs</h2>
-          <div className="text-center py-8">
-            <div className="text-muted-foreground text-xs font-mono">[SYSTEM_LOGS]</div>
-            <div className="text-muted-foreground/50 text-[10px] font-mono">Awaiting implementation</div>
-          </div>
+      <div className="flex items-center justify-between border-b border-border pb-3">
+        <div>
+          <h1 className="text-lg font-mono font-bold flex items-center gap-2">
+            <Settings className="h-5 w-5 text-primary" />
+            Administration
+          </h1>
+          <p className="text-muted-foreground text-[10px] font-mono mt-0.5">
+            User management & role configuration • {users.length} users registered
+          </p>
         </div>
       </div>
+
+      {/* Role summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {VALID_ROLES.map(role => (
+          <Card key={role} className="bg-card border-border">
+            <CardContent className="p-4 text-center">
+              <div className="text-2xl font-mono font-bold text-foreground">{roleCounts[role]}</div>
+              <Badge className={`${ROLE_COLORS[role]} text-[9px] font-mono mt-1 uppercase`}>
+                {role}
+              </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* User management table */}
+      <Card className="bg-card border-border overflow-hidden">
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm font-mono flex items-center gap-2">
+            <Users className="h-4 w-4 text-primary" />
+            USER MANAGEMENT
+          </CardTitle>
+        </CardHeader>
+        <Table>
+          <TableHeader>
+            <TableRow className="border-border">
+              <TableHead className="text-[9px] font-mono text-muted-foreground">USER ID</TableHead>
+              <TableHead className="text-[9px] font-mono text-muted-foreground">NAME</TableHead>
+              <TableHead className="text-[9px] font-mono text-muted-foreground">ORGANIZATION</TableHead>
+              <TableHead className="text-[9px] font-mono text-muted-foreground">CURRENT ROLE</TableHead>
+              <TableHead className="text-[9px] font-mono text-muted-foreground">CHANGE ROLE</TableHead>
+              <TableHead className="text-[9px] font-mono text-muted-foreground">JOINED</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-12">
+                  <Shield className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-[10px] font-mono text-muted-foreground">No users found</p>
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map(user => (
+                <TableRow key={user.user_id} className="border-border">
+                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                    {user.user_id.slice(0, 12)}…
+                  </TableCell>
+                  <TableCell className="text-[10px] font-mono text-foreground py-2">
+                    {user.full_name || '—'}
+                  </TableCell>
+                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                    {user.organization || '—'}
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <Badge className={`${ROLE_COLORS[user.role] || ROLE_COLORS.viewer} text-[8px] font-mono uppercase`}>
+                      {user.role}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="py-2">
+                    <Select
+                      value={user.role}
+                      onValueChange={(v) => handleRoleChange(user.user_id, v)}
+                      disabled={updatingId === user.user_id}
+                    >
+                      <SelectTrigger className="w-[120px] h-7 text-[10px] font-mono bg-secondary border-border">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-card border-border">
+                        {VALID_ROLES.map(r => (
+                          <SelectItem key={r} value={r} className="text-[10px] font-mono capitalize">
+                            {r}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   );
 }

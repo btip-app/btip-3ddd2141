@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      assets: {
+        Row: {
+          country: string | null
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+          region: string | null
+          subdivision: string | null
+          tags: string[] | null
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          lat: number
+          lng: number
+          name: string
+          region?: string | null
+          subdivision?: string | null
+          tags?: string[] | null
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+          region?: string | null
+          subdivision?: string | null
+          tags?: string[] | null
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       escalations: {
         Row: {
           assigned_to: string
@@ -255,6 +300,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      routes: {
+        Row: {
+          checkpoints: Json | null
+          country: string | null
+          created_at: string
+          end_label: string
+          end_lat: number
+          end_lng: number
+          id: string
+          name: string
+          region: string | null
+          start_label: string
+          start_lat: number
+          start_lng: number
+          subdivision: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          checkpoints?: Json | null
+          country?: string | null
+          created_at?: string
+          end_label: string
+          end_lat: number
+          end_lng: number
+          id?: string
+          name: string
+          region?: string | null
+          start_label: string
+          start_lat: number
+          start_lng: number
+          subdivision?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          checkpoints?: Json | null
+          country?: string | null
+          created_at?: string
+          end_label?: string
+          end_lat?: number
+          end_lng?: number
+          id?: string
+          name?: string
+          region?: string | null
+          start_label?: string
+          start_lat?: number
+          start_lng?: number
+          subdivision?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

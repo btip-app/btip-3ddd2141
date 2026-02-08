@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   ClipboardList,
   Copy,
+  Download,
   ExternalLink,
   FileText,
   Info,
@@ -26,6 +27,7 @@ import {
   Target,
   Terminal,
 } from "lucide-react";
+import { exportCopilotPdf } from "@/lib/exportPdf";
 
 // --- Types ---
 
@@ -444,6 +446,13 @@ export default function Copilot() {
                           >
                             <Copy className="h-2.5 w-2.5" /> copy
                           </button>
+                          <button
+                            className="text-[8px] font-mono text-muted-foreground hover:text-primary flex items-center gap-1 transition-colors"
+                            onClick={(e) => { e.stopPropagation(); if (msg.response) exportCopilotPdf(msg.content, msg.response, msg.timestamp); }}
+                            title="Export PDF"
+                          >
+                            <Download className="h-2.5 w-2.5" /> pdf
+                          </button>
                           <span
                             className="text-[8px] font-mono text-primary flex items-center gap-1 cursor-pointer"
                             onClick={() => setSelectedMessage(msg)}
@@ -513,14 +522,29 @@ export default function Copilot() {
               EVIDENCE & SOURCES
             </h2>
             {selectedMessage?.response && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 text-[9px] font-mono text-muted-foreground hover:text-primary px-2"
-                onClick={() => selectedMessage && copyAnalysis(selectedMessage)}
-              >
-                <Copy className="h-3 w-3 mr-1" /> Copy
-              </Button>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[9px] font-mono text-muted-foreground hover:text-primary px-2"
+                  onClick={() => selectedMessage && copyAnalysis(selectedMessage)}
+                >
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 text-[9px] font-mono text-muted-foreground hover:text-primary px-2"
+                  onClick={() => {
+                    if (selectedMessage?.response) {
+                      const query = messages.find(m => m.role === "user" && messages.indexOf(m) < messages.indexOf(selectedMessage))?.content || "Analysis";
+                      exportCopilotPdf(query, selectedMessage.response, selectedMessage.timestamp);
+                    }
+                  }}
+                >
+                  <Download className="h-3 w-3 mr-1" /> PDF
+                </Button>
+              </div>
             )}
           </div>
           <Separator />
