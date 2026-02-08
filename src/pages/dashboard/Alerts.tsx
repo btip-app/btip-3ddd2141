@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -253,6 +254,7 @@ export default function Alerts() {
   const [simulationActive, setSimulationActive] = useState(false);
   const eventIndexRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { log: auditLog } = useAuditLog();
 
   const triggerNewAlert = useCallback(() => {
     const eventTemplate = SIMULATED_EVENTS[eventIndexRef.current % SIMULATED_EVENTS.length];
@@ -292,15 +294,21 @@ export default function Alerts() {
   const newCount = alerts.filter(a => a.status === "new").length;
 
   function handleAcknowledge(id: string) {
+    const alert = alerts.find(a => a.id === id);
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "acknowledged" as AlertStatus } : a));
+    auditLog("ALERT_ACK", alert?.title ?? id);
   }
 
   function handleMute(id: string) {
+    const alert = alerts.find(a => a.id === id);
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "muted" as AlertStatus } : a));
+    auditLog("ALERT_MUTE", alert?.title ?? id);
   }
 
   function handleSnooze(id: string) {
+    const alert = alerts.find(a => a.id === id);
     setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "snoozed" as AlertStatus } : a));
+    auditLog("ALERT_SNOOZE", alert?.title ?? id);
   }
 
   function handleRemoveWatch(id: string) {
