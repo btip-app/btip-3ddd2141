@@ -25,6 +25,7 @@ import Admin from "./pages/dashboard/Admin";
 import AuditLog from "./pages/dashboard/AuditLog";
 import IncidentReport from "./pages/dashboard/IncidentReport";
 import Escalations from "./pages/dashboard/Escalations";
+import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -83,6 +84,7 @@ const App = () => (
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />
+                <Route path="profile" element={<ProfileSettings />} />
               </Route>
               
               {/* 404 */}

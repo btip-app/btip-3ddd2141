@@ -25,6 +25,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
+import { AddRegionDialog, type MonitoredRegion } from "@/components/dashboard/AddRegionDialog";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -454,6 +455,12 @@ function IncidentDetailPanel({ incident }: { incident: Incident | null }) {
 export default function DailyBrief() {
   const { role, isExecutive } = useUserRole();
   const { log: auditLog } = useAuditLog();
+  const [addRegionOpen, setAddRegionOpen] = useState(false);
+  const [monitoredRegions, setMonitoredRegions] = useState<MonitoredRegion[]>(() => {
+    const stored = localStorage.getItem('btip-regions-default');
+    if (stored) { try { return JSON.parse(stored); } catch { return []; } }
+    return [{ id: 'west-africa-ghana-all', region: 'west-africa', regionLabel: 'West Africa', country: 'ghana', countryLabel: 'Ghana' }];
+  });
 
   const handleExport = () => {
     auditLog("REPORT_EXPORT", "Daily Intelligence Brief");
@@ -732,15 +739,31 @@ export default function DailyBrief() {
                 onClick={() => handleIncidentClick(incident.id)}
               />
             ))}
-            {/* Empty state placeholder */}
-            <div className="bg-secondary/30 border border-dashed border-border rounded p-3 flex items-center justify-center min-h-[100px]">
+            {/* Add Region button */}
+            <button
+              onClick={() => setAddRegionOpen(true)}
+              className="bg-secondary/30 border border-dashed border-border rounded p-3 flex items-center justify-center min-h-[100px] cursor-pointer hover:border-primary/50 hover:bg-secondary/50 transition-colors"
+            >
               <span className="text-[10px] font-mono text-muted-foreground">
                 + Add Region
               </span>
-            </div>
+            </button>
           </div>
         </CardContent>
       </Card>
+
+      <AddRegionDialog
+        open={addRegionOpen}
+        onOpenChange={setAddRegionOpen}
+        onAdd={(r) => {
+          setMonitoredRegions(prev => {
+            const next = [...prev, r];
+            localStorage.setItem('btip-regions-default', JSON.stringify(next));
+            return next;
+          });
+        }}
+        existing={monitoredRegions}
+      />
 
       {/* Incident Detail Sheet */}
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
