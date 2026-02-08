@@ -1,8 +1,8 @@
-import { Bell, Search, Terminal } from 'lucide-react';
+import { Terminal, Search } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
+import { NotificationBell } from './NotificationBell';
 
 export function DashboardHeader() {
   const { user } = useAuth();
@@ -30,10 +30,7 @@ export function DashboardHeader() {
         </div>
 
         {/* Notifications */}
-        <Button variant="ghost" size="icon" className="relative h-8 w-8">
-          <Bell className="h-4 w-4" />
-          <span className="absolute top-1 right-1 h-1.5 w-1.5 bg-destructive rounded-full" />
-        </Button>
+        <NotificationBell />
 
         {/* User */}
         <div className="flex items-center gap-2 pl-2 border-l border-border">
