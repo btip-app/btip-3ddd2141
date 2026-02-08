@@ -8,6 +8,7 @@ import { AuditLogProvider } from "@/hooks/useAuditLog";
 
 // Landing
 import Index from "./pages/Index";
+import LandingV2 from "./pages/LandingV2";
 import NotFound from "./pages/NotFound";
 
 // Auth
@@ -37,6 +38,7 @@ const App = () => (
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<Index />} />
+              <Route path="/v2" element={<LandingV2 />} />
               <Route path="/auth" element={<Auth />} />
               
               {/* Protected Dashboard Routes */}
