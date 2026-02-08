@@ -24,6 +24,7 @@ import Copilot from "./pages/dashboard/Copilot";
 import Admin from "./pages/dashboard/Admin";
 import AuditLog from "./pages/dashboard/AuditLog";
 import IncidentReport from "./pages/dashboard/IncidentReport";
+import Escalations from "./pages/dashboard/Escalations";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,11 @@ const App = () => (
                 <Route path="copilot" element={
                   <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
                     <Copilot />
+                  </RoleGate>
+                } />
+                <Route path="escalations" element={
+                  <RoleGate allowed={['admin', 'analyst']} fallback="denied">
+                    <Escalations />
                   </RoleGate>
                 } />
                 <Route path="admin" element={
