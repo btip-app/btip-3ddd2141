@@ -1,26 +1,36 @@
-import { FileText, Map, Shield, Bell } from "lucide-react";
+import { FileText, Map, Shield, Bell, Brain } from "lucide-react";
 import { useScrollReveal } from "@/hooks/useScrollReveal";
 
 const pillars = [
   {
     icon: FileText,
-    title: "Daily Intelligence",
+    title: "Daily Brief",
     description: "Curated threat briefs delivered every morning.",
+    sentence: "What changed today and why it matters.",
   },
   {
     icon: Map,
-    title: "Threat Mapping",
+    title: "Threat Map",
     description: "Geospatial view of incidents across the continent.",
+    sentence: "Live incidents tied to geography.",
   },
   {
     icon: Shield,
     title: "Assets & Routes",
     description: "Track and protect critical infrastructure.",
+    sentence: "Risk relative to what you operate.",
   },
   {
     icon: Bell,
-    title: "Alerts & Decisions",
+    title: "Alerts",
     description: "Real-time notifications with actionable context.",
+    sentence: "Signal when risk crosses thresholds.",
+  },
+  {
+    icon: Brain,
+    title: "Copilot",
+    description: "AI-assisted decision support.",
+    sentence: "Evidence-backed decision support.",
   },
 ];
 
@@ -50,7 +60,7 @@ const PillarsSection = () => {
           Four operational pillars.
         </h2>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-5xl mx-auto">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-6 max-w-6xl mx-auto">
           {pillars.map((pillar, i) => (
             <div
               key={pillar.title}
@@ -69,6 +79,9 @@ const PillarsSection = () => {
               </h3>
               <p className="text-sm text-muted-foreground font-mono leading-relaxed">
                 {pillar.description}
+              </p>
+              <p className="text-xs text-primary/70 font-mono italic mt-auto pt-2 border-t border-border/50">
+                {pillar.sentence}
               </p>
             </div>
           ))}
