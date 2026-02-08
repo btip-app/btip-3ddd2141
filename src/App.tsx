@@ -25,6 +25,7 @@ import Admin from "./pages/dashboard/Admin";
 import AuditLog from "./pages/dashboard/AuditLog";
 import IncidentReport from "./pages/dashboard/IncidentReport";
 import Escalations from "./pages/dashboard/Escalations";
+import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
@@ -76,6 +77,11 @@ const App = () => (
                 <Route path="admin" element={
                   <RoleGate allowed={['admin']} fallback="denied">
                     <Admin />
+                  </RoleGate>
+                } />
+                <Route path="activity" element={
+                  <RoleGate allowed={['admin']} fallback="denied">
+                    <AdminActivity />
                   </RoleGate>
                 } />
                 <Route path="audit-log" element={

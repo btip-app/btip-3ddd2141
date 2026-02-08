@@ -59,6 +59,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          category: string
+          context: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          user_email: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          category?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_email?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          category?: string
+          context?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          user_email?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       escalations: {
         Row: {
           assigned_to: string

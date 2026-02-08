@@ -1,44 +1,69 @@
-import { useState, useCallback, createContext, useContext, ReactNode } from 'react';
+import { useState, useCallback, useEffect, createContext, useContext, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface AuditEntry {
   id: string;
-  user: string;
+  user_id: string;
+  user_email: string | null;
   action: string;
-  context: string;
-  timestamp: string;
+  category: string;
+  context: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
 }
 
 interface AuditLogContextType {
   entries: AuditEntry[];
-  log: (action: string, context: string) => void;
+  log: (action: string, context: string, category?: string, metadata?: Record<string, unknown>) => void;
+  loading: boolean;
 }
 
 const AuditLogContext = createContext<AuditLogContextType | undefined>(undefined);
 
-function formatTimestamp() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
 export function AuditLogProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [entries, setEntries] = useState<AuditEntry[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const log = useCallback((action: string, context: string) => {
-    const entry: AuditEntry = {
-      id: `audit-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      user: user?.email ?? 'unknown',
-      action,
-      context,
-      timestamp: formatTimestamp(),
-    };
-    setEntries(prev => [entry, ...prev]);
+  // Log login events
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' && user) {
+      supabase.from('audit_log').insert([{
+          user_id: user.id,
+          user_email: user.email ?? null,
+          action: 'login',
+          category: 'auth',
+          context: 'User signed in',
+        }]).then();
+      }
+    });
+    return () => subscription.unsubscribe();
   }, [user]);
 
+  const log = useCallback(
+    (action: string, context: string, category = 'general', metadata: Record<string, string> = {}) => {
+      if (!user) return;
+      const dbEntry = {
+        user_id: user.id,
+        user_email: user.email ?? null,
+        action,
+        category,
+        context,
+        metadata: metadata as Record<string, string>,
+      };
+      supabase.from('audit_log').insert([dbEntry]).then();
+      setEntries(prev => [
+        { ...dbEntry, id: `temp-${Date.now()}`, created_at: new Date().toISOString(), metadata: metadata as Record<string, unknown> },
+        ...prev,
+      ]);
+    },
+    [user],
+  );
+
   return (
-    <AuditLogContext.Provider value={{ entries, log }}>
+    <AuditLogContext.Provider value={{ entries, log, loading }}>
       {children}
     </AuditLogContext.Provider>
   );
