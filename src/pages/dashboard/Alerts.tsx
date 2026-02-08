@@ -1,19 +1,12 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo } from "react";
 import { useAuditLog } from "@/hooks/useAuditLog";
-import { toast } from "sonner";
+import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -34,7 +27,9 @@ import {
   Shield,
   Building2,
   Trash2,
+  Loader2,
 } from "lucide-react";
+import { format } from "date-fns";
 
 // --- Types ---
 
@@ -46,11 +41,11 @@ interface Alert {
   type: AlertType;
   title: string;
   description: string;
-  relatedAsset: string;
   region: string;
   severity: number;
   timestamp: string;
   status: AlertStatus;
+  category: string;
 }
 
 interface WatchItem {
@@ -61,158 +56,26 @@ interface WatchItem {
   incidentCount: number;
 }
 
-// --- Mock Data ---
-
-const INITIAL_ALERTS: Alert[] = [
-  {
-    id: "al-1",
-    type: "proximity",
-    title: "Incident detected near Lagos HQ",
-    description: "Armed robbery reported 3.2km from Lagos HQ. Category: robbery, severity 4.",
-    relatedAsset: "Lagos HQ",
-    region: "Lagos",
-    severity: 4,
-    timestamp: "2026-02-07 11:42",
-    status: "new",
-  },
-  {
-    id: "al-2",
-    type: "severity_increase",
-    title: "Severity escalation — Port Harcourt",
-    description: "Kidnapping threat near PHC Refinery Complex upgraded from severity 3 to 5.",
-    relatedAsset: "PHC Refinery Complex",
-    region: "Rivers",
-    severity: 5,
-    timestamp: "2026-02-07 10:15",
-    status: "new",
-  },
-  {
-    id: "al-3",
-    type: "route_threat",
-    title: "Threat along Lagos → Abuja route",
-    description: "Highway banditry report near Lokoja Waypoint, within 8km of route corridor.",
-    relatedAsset: "Lagos → Abuja Express",
-    region: "Kogi",
-    severity: 3,
-    timestamp: "2026-02-07 08:30",
-    status: "new",
-  },
-  {
-    id: "al-4",
-    type: "new_incident",
-    title: "New incident — Bonny Island area",
-    description: "Suspicious vessel activity reported near Bonny Island Terminal.",
-    relatedAsset: "Bonny Island Terminal",
-    region: "Rivers",
-    severity: 3,
-    timestamp: "2026-02-07 06:00",
-    status: "acknowledged",
-  },
-  {
-    id: "al-5",
-    type: "proximity",
-    title: "Civil unrest near Exec Residence",
-    description: "Protest activity detected 5.8km from Exec Residence - VI.",
-    relatedAsset: "Exec Residence - VI",
-    region: "Lagos",
-    severity: 2,
-    timestamp: "2026-02-06 22:10",
-    status: "acknowledged",
-  },
-  {
-    id: "al-6",
-    type: "proximity",
-    title: "Incident near Staff Housing",
-    description: "Carjacking reported 4.1km from Staff Housing - Lekki.",
-    relatedAsset: "Staff Housing - Lekki",
-    region: "Lagos",
-    severity: 4,
-    timestamp: "2026-02-06 19:30",
-    status: "muted",
-  },
-  {
-    id: "al-7",
-    type: "severity_increase",
-    title: "Escalation — Kano militia activity",
-    description: "Militia activity near Kano region increased to critical severity.",
-    relatedAsset: "—",
-    region: "Kano",
-    severity: 5,
-    timestamp: "2026-02-06 15:00",
-    status: "snoozed",
-  },
-];
-
-const INITIAL_WATCHLIST: WatchItem[] = [
-  { id: "w1", name: "Lagos Metropolitan", type: "region", addedAt: "2026-01-15", incidentCount: 4 },
-  { id: "w2", name: "Niger Delta Corridor", type: "region", addedAt: "2026-01-20", incidentCount: 3 },
-  { id: "w3", name: "Lagos HQ", type: "asset", addedAt: "2026-01-10", incidentCount: 2 },
-  { id: "w4", name: "PHC Refinery Complex", type: "asset", addedAt: "2026-01-10", incidentCount: 2 },
-  { id: "w5", name: "Exec Residence - VI", type: "asset", addedAt: "2026-01-12", incidentCount: 1 },
-  { id: "w6", name: "Lagos → Abuja Express", type: "route", addedAt: "2026-01-18", incidentCount: 1 },
-  { id: "w7", name: "PHC → Bonny Island", type: "route", addedAt: "2026-01-22", incidentCount: 1 },
-];
-
-// --- Simulated incoming events pool ---
-
-const SIMULATED_EVENTS: Omit<Alert, "id" | "timestamp" | "status">[] = [
-  {
-    type: "proximity",
-    title: "New incident near Lagos HQ",
-    description: "Suspicious surveillance activity reported 2.1km from Lagos HQ perimeter.",
-    relatedAsset: "Lagos HQ",
-    region: "Lagos",
-    severity: 3,
-  },
-  {
-    type: "severity_increase",
-    title: "Escalation — Niger Delta pipeline",
-    description: "Pipeline vandalism threat upgraded from severity 3 to 5 near PHC Refinery.",
-    relatedAsset: "PHC Refinery Complex",
-    region: "Rivers",
-    severity: 5,
-  },
-  {
-    type: "route_threat",
-    title: "Incident along PHC → Bonny route",
-    description: "Armed group sighting reported within 6km of PHC → Bonny Island corridor.",
-    relatedAsset: "PHC → Bonny Island",
-    region: "Rivers",
-    severity: 4,
-  },
-  {
-    type: "proximity",
-    title: "Activity near Exec Residence",
-    description: "Unknown vehicle loitering detected near Exec Residence - VI security zone.",
-    relatedAsset: "Exec Residence - VI",
-    region: "Lagos",
-    severity: 3,
-  },
-  {
-    type: "new_incident",
-    title: "New incident — Abuja region",
-    description: "Improvised roadblock reported on outskirts of Abuja near liaison office.",
-    relatedAsset: "Abuja Liaison Office",
-    region: "FCT",
-    severity: 3,
-  },
-  {
-    type: "severity_increase",
-    title: "Escalation — Lagos maritime zone",
-    description: "Piracy threat level increased in Lagos coastal waters, affecting port operations.",
-    relatedAsset: "Lagos HQ",
-    region: "Lagos",
-    severity: 4,
-  },
-];
-
-function formatNow() {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
 // --- Helpers ---
+
+function mapIncidentToAlert(inc: Incident): Alert {
+  let type: AlertType = "new_incident";
+  if (inc.severity >= 5) type = "severity_increase";
+  else if (inc.category?.toLowerCase().includes("route") || inc.category?.toLowerCase().includes("transport")) type = "route_threat";
+  else if (inc.severity >= 4) type = "proximity";
+
+  return {
+    id: inc.id,
+    type,
+    title: inc.title,
+    description: inc.summary || `${inc.category} incident in ${inc.location}. Severity ${inc.severity}/5.`,
+    region: inc.country || inc.region || "Unknown",
+    severity: inc.severity,
+    timestamp: format(new Date(inc.datetime), "yyyy-MM-dd HH:mm"),
+    status: "new",
+    category: inc.category,
+  };
+}
 
 const ALERT_TYPE_META: Record<AlertType, { label: string; icon: typeof AlertTriangle }> = {
   proximity: { label: "PROXIMITY", icon: Radio },
@@ -247,43 +110,39 @@ const WATCHLIST_TYPE_ICON: Record<string, typeof MapPin> = {
 // --- Component ---
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState<Alert[]>(INITIAL_ALERTS);
-  const [watchlist, setWatchlist] = useState<WatchItem[]>(INITIAL_WATCHLIST);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [typeFilter, setTypeFilter] = useState("all");
-  const [simulationActive, setSimulationActive] = useState(false);
-  const eventIndexRef = useRef(0);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { incidents, loading } = useIncidents();
+  const { regions } = useMonitoredRegions();
   const { log: auditLog } = useAuditLog();
 
-  const triggerNewAlert = useCallback(() => {
-    const eventTemplate = SIMULATED_EVENTS[eventIndexRef.current % SIMULATED_EVENTS.length];
-    eventIndexRef.current += 1;
-    const newAlert: Alert = {
-      ...eventTemplate,
-      id: `al-sim-${Date.now()}`,
-      timestamp: formatNow(),
-      status: "new",
-    };
-    setAlerts(prev => [newAlert, ...prev]);
-    toast.error(newAlert.title, {
-      description: newAlert.description,
-      duration: 5000,
-    });
-  }, []);
+  // Local overrides for alert status (id -> status)
+  const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>({});
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
-  useEffect(() => {
-    if (simulationActive) {
-      // Fire one immediately, then every 15–30s randomly
-      triggerNewAlert();
-      intervalRef.current = setInterval(() => {
-        triggerNewAlert();
-      }, 15000 + Math.random() * 15000);
-    }
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [simulationActive, triggerNewAlert]);
+  // Derive alerts from live incidents
+  const alerts = useMemo(() => {
+    return incidents.map(inc => {
+      const alert = mapIncidentToAlert(inc);
+      if (statusOverrides[alert.id]) {
+        alert.status = statusOverrides[alert.id];
+      }
+      return alert;
+    });
+  }, [incidents, statusOverrides]);
+
+  // Build watchlist from monitored regions with incident counts
+  const watchlist: WatchItem[] = useMemo(() => {
+    return regions.map(r => ({
+      id: r.id,
+      name: r.subdivisionLabel ? `${r.countryLabel} — ${r.subdivisionLabel}` : r.countryLabel,
+      type: "region" as const,
+      addedAt: "—",
+      incidentCount: incidents.filter(i =>
+        i.region === r.region || i.country === r.country ||
+        (r.subdivision && i.subdivision === r.subdivision)
+      ).length,
+    }));
+  }, [regions, incidents]);
 
   const filteredAlerts = alerts.filter(a => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
@@ -295,24 +154,28 @@ export default function Alerts() {
 
   function handleAcknowledge(id: string) {
     const alert = alerts.find(a => a.id === id);
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "acknowledged" as AlertStatus } : a));
+    setStatusOverrides(prev => ({ ...prev, [id]: "acknowledged" }));
     auditLog("ALERT_ACK", alert?.title ?? id);
   }
 
   function handleMute(id: string) {
     const alert = alerts.find(a => a.id === id);
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "muted" as AlertStatus } : a));
+    setStatusOverrides(prev => ({ ...prev, [id]: "muted" }));
     auditLog("ALERT_MUTE", alert?.title ?? id);
   }
 
   function handleSnooze(id: string) {
     const alert = alerts.find(a => a.id === id);
-    setAlerts(prev => prev.map(a => a.id === id ? { ...a, status: "snoozed" as AlertStatus } : a));
+    setStatusOverrides(prev => ({ ...prev, [id]: "snoozed" }));
     auditLog("ALERT_SNOOZE", alert?.title ?? id);
   }
 
-  function handleRemoveWatch(id: string) {
-    setWatchlist(prev => prev.filter(w => w.id !== id));
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-120px)]">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
   }
 
   return (
@@ -322,19 +185,14 @@ export default function Alerts() {
         <div>
           <h1 className="text-xl font-mono font-bold text-foreground">Alerts Center</h1>
           <p className="text-muted-foreground text-[10px] font-mono">
-            {alerts.length} total alerts • {newCount} unacknowledged
+            {alerts.length} total alerts • {newCount} unacknowledged • Real-time
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant={simulationActive ? "destructive" : "outline"}
-            className="text-[10px] font-mono h-7"
-            onClick={() => setSimulationActive(prev => !prev)}
-          >
-            <Radio className="h-3 w-3 mr-1" />
-            {simulationActive ? "LIVE FEED ON" : "SIMULATE FEED"}
-          </Button>
+          <Badge variant="outline" className="text-[10px] font-mono">
+            <Radio className="h-3 w-3 mr-1 text-green-500" />
+            LIVE
+          </Badge>
           <Badge variant={newCount > 0 ? "destructive" : "outline"} className="text-[10px] font-mono">
             <Bell className="h-3 w-3 mr-1" />
             {newCount} NEW
@@ -408,12 +266,9 @@ export default function Alerts() {
                     className={`p-3 bg-card border-border ${alert.status === "new" ? "border-l-2 border-l-destructive" : ""}`}
                   >
                     <div className="flex items-start gap-3">
-                      {/* Icon */}
                       <div className="pt-0.5">
                         <TypeIcon className={`h-4 w-4 ${alert.status === "new" ? "text-destructive" : "text-muted-foreground"}`} />
                       </div>
-
-                      {/* Content */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <Badge className={`${severity.className} text-[8px] font-mono px-1.5 py-0`}>
@@ -434,10 +289,6 @@ export default function Alerts() {
                         </p>
                         <div className="flex items-center gap-3 text-[9px] font-mono text-muted-foreground">
                           <span className="flex items-center gap-1">
-                            <Building2 className="h-2.5 w-2.5" />
-                            {alert.relatedAsset}
-                          </span>
-                          <span className="flex items-center gap-1">
                             <MapPin className="h-2.5 w-2.5" />
                             {alert.region}
                           </span>
@@ -447,8 +298,6 @@ export default function Alerts() {
                           </span>
                         </div>
                       </div>
-
-                      {/* Actions */}
                       <div className="flex gap-1 flex-shrink-0">
                         {alert.status === "new" && (
                           <Button
@@ -489,7 +338,7 @@ export default function Alerts() {
           </div>
         </div>
 
-        {/* Right: Watchlists */}
+        {/* Right: Watchlists (driven by monitored regions) */}
         <Card className="w-[300px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
           <div className="px-3 pt-3 pb-2">
             <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
@@ -497,65 +346,42 @@ export default function Alerts() {
               WATCHLISTS
             </h2>
             <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
-              {watchlist.length} items monitored
+              {watchlist.length} regions monitored
             </p>
           </div>
           <Separator />
 
-          <Tabs defaultValue="regions" className="flex flex-col flex-1 min-h-0">
-            <TabsList className="bg-secondary mx-3 mt-2">
-              <TabsTrigger value="regions" className="text-[9px] font-mono">REGIONS</TabsTrigger>
-              <TabsTrigger value="assets" className="text-[9px] font-mono">ASSETS</TabsTrigger>
-              <TabsTrigger value="routes" className="text-[9px] font-mono">ROUTES</TabsTrigger>
-            </TabsList>
-
-            {(["regions", "assets", "routes"] as const).map(tabType => {
-              const filterType = tabType === "regions" ? "region" : tabType === "assets" ? "asset" : "route";
-              const items = watchlist.filter(w => w.type === filterType);
-              return (
-                <TabsContent key={tabType} value={tabType} className="flex-1 overflow-auto mt-0 px-2 pb-2">
-                  {items.length === 0 ? (
-                    <div className="p-4 text-center">
-                      <p className="text-[10px] font-mono text-muted-foreground">No watched {tabType}</p>
+          <div className="flex-1 overflow-auto px-2 pb-2">
+            {watchlist.length === 0 ? (
+              <div className="p-4 text-center">
+                <p className="text-[10px] font-mono text-muted-foreground">
+                  No monitored regions. Add regions from the Daily Brief.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1.5 mt-2">
+                {watchlist.map(item => (
+                  <div
+                    key={item.id}
+                    className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
+                  >
+                    <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
+                      <div className="text-[8px] font-mono text-muted-foreground">
+                        Added {item.addedAt}
+                      </div>
                     </div>
-                  ) : (
-                    <div className="space-y-1.5 mt-2">
-                      {items.map(item => {
-                        const WIcon = WATCHLIST_TYPE_ICON[item.type];
-                        return (
-                          <div
-                            key={item.id}
-                            className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
-                          >
-                            <WIcon className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
-                              <div className="text-[8px] font-mono text-muted-foreground">
-                                Added {item.addedAt}
-                              </div>
-                            </div>
-                            {item.incidentCount > 0 && (
-                              <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
-                                {item.incidentCount}
-                              </Badge>
-                            )}
-                            <Button
-                              variant="ghost" size="icon"
-                              className="h-5 w-5 flex-shrink-0"
-                              title="Remove from watchlist"
-                              onClick={() => handleRemoveWatch(item.id)}
-                            >
-                              <Trash2 className="h-2.5 w-2.5 text-muted-foreground" />
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </TabsContent>
-              );
-            })}
-          </Tabs>
+                    {item.incidentCount > 0 && (
+                      <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
+                        {item.incidentCount}
+                      </Badge>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </Card>
       </div>
     </div>
