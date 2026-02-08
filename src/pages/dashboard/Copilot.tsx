@@ -1,6 +1,7 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuditLog } from "@/hooks/useAuditLog";
-import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -60,84 +61,7 @@ interface AuditEntry {
   timestamp: string;
 }
 
-// --- Live data analysis engine ---
-
-function analyzeIncidents(query: string, incidents: Incident[]): CopilotResponse {
-  const q = query.toLowerCase();
-
-  // Filter incidents relevant to query by keyword matching on location, category, title, region, country
-  const relevant = incidents.filter(inc => {
-    const haystack = `${inc.title} ${inc.location} ${inc.category} ${inc.region} ${inc.country || ""} ${inc.subdivision || ""} ${inc.summary || ""}`.toLowerCase();
-    // Extract meaningful words from query (>2 chars)
-    const keywords = q.split(/\s+/).filter(w => w.length > 2 && !["the", "what", "how", "are", "for", "and", "near", "around", "along", "about", "current", "level", "assess", "risk", "threat", "evaluate", "security", "posture"].includes(w));
-    return keywords.some(kw => haystack.includes(kw));
-  });
-
-  const pool = relevant.length > 0 ? relevant : incidents.slice(0, 5);
-  const maxSeverity = Math.max(...pool.map(i => i.severity), 1);
-  const avgSeverity = pool.reduce((s, i) => s + i.severity, 0) / (pool.length || 1);
-  const avgConfidence = pool.reduce((s, i) => s + i.confidence, 0) / (pool.length || 1);
-
-  // Determine risk level
-  let riskLevel: RiskLevel = "low";
-  if (maxSeverity >= 5 || avgSeverity >= 4) riskLevel = "critical";
-  else if (maxSeverity >= 4 || avgSeverity >= 3) riskLevel = "high";
-  else if (maxSeverity >= 3 || avgSeverity >= 2) riskLevel = "medium";
-
-  const confidence = Math.round(avgConfidence);
-
-  // Build evidence from actual incidents
-  const evidence = pool.slice(0, 6).map(inc => {
-    const timeAgo = getTimeAgo(inc.datetime);
-    return `${inc.title} — ${inc.location}, severity ${inc.severity}/5, ${inc.confidence}% confidence (${timeAgo})`;
-  });
-
-  if (pool.length > 6) {
-    evidence.push(`+ ${pool.length - 6} additional incidents in dataset`);
-  }
-
-  // Generate contextual recommendations
-  const recommendations: string[] = [];
-  if (maxSeverity >= 5) {
-    recommendations.push("Elevate security posture to maximum immediately for affected areas");
-    recommendations.push("Consider suspending non-essential personnel movements");
-  }
-  if (maxSeverity >= 4) {
-    recommendations.push("Brief executive protection teams on updated threat vectors");
-    recommendations.push("Review and restrict vehicle movements during high-risk hours");
-  }
-  if (pool.some(i => i.category.toLowerCase().includes("kidnap"))) {
-    recommendations.push("Activate duress protocols and safe room procedures for at-risk personnel");
-  }
-  if (pool.some(i => i.category.toLowerCase().includes("piracy") || i.category.toLowerCase().includes("maritime"))) {
-    recommendations.push("Coordinate with naval patrol for maritime corridor protection");
-  }
-  recommendations.push("Continue routine monitoring and reassess at next scheduled interval");
-
-  // Build summary
-  const locations = [...new Set(pool.map(i => i.location))].slice(0, 3).join(", ");
-  const categories = [...new Set(pool.map(i => i.category))].slice(0, 3).join(", ");
-  const summary = relevant.length > 0
-    ? `Analysis identified ${pool.length} relevant incident${pool.length !== 1 ? "s" : ""} across ${locations}. Primary threat categories: ${categories}. Maximum severity: ${maxSeverity}/5. Average confidence: ${confidence}%. ${riskLevel === "critical" ? "Immediate action recommended." : riskLevel === "high" ? "Elevated vigilance advised." : "Standard monitoring sufficient."}`
-    : `No incidents directly matching your query were found. Showing top recent incidents for context. ${pool.length} incidents analyzed across the operational area. Current baseline threat posture remains at standard levels.`;
-
-  const linkedIncidents: LinkedIncident[] = pool.slice(0, 5).map(i => ({
-    id: i.id,
-    title: i.title,
-    severity: i.severity,
-  }));
-
-  return { riskLevel, confidence, summary, evidence, recommendations, linkedIncidents };
-}
-
-function getTimeAgo(datetime: string): string {
-  const diff = Date.now() - new Date(datetime).getTime();
-  const hours = Math.floor(diff / 3600000);
-  if (hours < 1) return "< 1h ago";
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
+// AI-powered analysis via edge function
 
 function formatNow() {
   const d = new Date();
@@ -173,7 +97,6 @@ const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Asse
 // --- Component ---
 
 export default function Copilot() {
-  const { incidents } = useIncidents();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
@@ -215,29 +138,55 @@ export default function Copilot() {
     setAuditLog(prev => [auditEntry, ...prev]);
     auditLogGlobal("COPILOT_QUERY", query);
 
-    // Simulate processing delay (1.5–3s)
-    const delay = 1500 + Math.random() * 1500;
-    setTimeout(() => {
-      const response = analyzeIncidents(query, incidents);
-      const assistantMsg: Message = {
-        id: `msg-${Date.now()}`,
-        role: "assistant",
-        content: response.summary,
-        timestamp: formatNow(),
-        response,
-      };
-      setMessages(prev => [...prev, assistantMsg]);
-      setSelectedMessage(assistantMsg);
+    // Call AI edge function
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke("copilot-analyze", {
+          body: { query },
+        });
 
-      // Update audit log entry with result
-      setAuditLog(prev =>
-        prev.map(e => e.id === auditEntry.id
-          ? { ...e, riskLevel: response.riskLevel, confidence: response.confidence }
-          : e
-        )
-      );
-      setIsProcessing(false);
-    }, delay);
+        if (error) throw error;
+
+        const response: CopilotResponse = {
+          riskLevel: data.riskLevel || "low",
+          confidence: data.confidence || 50,
+          summary: data.summary || "Analysis could not be completed.",
+          evidence: data.evidence || [],
+          recommendations: data.recommendations || [],
+          linkedIncidents: data.linkedIncidents || [],
+        };
+
+        const assistantMsg: Message = {
+          id: `msg-${Date.now()}`,
+          role: "assistant",
+          content: response.summary,
+          timestamp: formatNow(),
+          response,
+        };
+        setMessages(prev => [...prev, assistantMsg]);
+        setSelectedMessage(assistantMsg);
+
+        setAuditLog(prev =>
+          prev.map(e => e.id === auditEntry.id
+            ? { ...e, riskLevel: response.riskLevel, confidence: response.confidence }
+            : e
+          )
+        );
+      } catch (err: any) {
+        console.error("Copilot error:", err);
+        const errorMsg = err?.message || "Analysis failed. Please try again.";
+        toast.error(errorMsg);
+        const fallbackMsg: Message = {
+          id: `msg-${Date.now()}`,
+          role: "assistant",
+          content: `Error: ${errorMsg}`,
+          timestamp: formatNow(),
+        };
+        setMessages(prev => [...prev, fallbackMsg]);
+      } finally {
+        setIsProcessing(false);
+      }
+    })();
   }
 
   function handleSuggestion(query: string) {
