@@ -293,6 +293,33 @@ export type Database = {
         }
         Relationships: []
       }
+      osint_sources: {
+        Row: {
+          created_at: string
+          created_by: string
+          enabled: boolean
+          id: string
+          label: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          id?: string
+          label: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          url?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

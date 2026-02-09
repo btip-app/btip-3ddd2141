@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 // OSINT sources to scrape for security incidents
-const OSINT_SOURCES = [
+// Default OSINT sources (fallback if DB has none)
+const DEFAULT_SOURCES = [
   { url: "https://www.aljazeera.com/tag/security/", label: "Al Jazeera Security" },
   { url: "https://www.bbc.com/news/topics/cwlw3xz047jt", label: "BBC Conflicts" },
   { url: "https://reliefweb.int/updates?view=reports&search=security+incident", label: "ReliefWeb" },
@@ -60,11 +61,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse optional body for custom sources or region filter
-    let body: { sources?: string[]; region?: string } = {};
+    // Parse optional body for region filter
+    let body: { region?: string } = {};
     try { body = await req.json(); } catch { /* use defaults */ }
 
-    const sourcesToScrape = body.sources?.map(url => ({ url, label: url })) || OSINT_SOURCES;
+    // Load sources from DB (enabled only), fallback to defaults
+    const { data: dbSources } = await supabase
+      .from("osint_sources")
+      .select("url, label")
+      .eq("enabled", true);
+
+    const sourcesToScrape = (dbSources && dbSources.length > 0)
+      ? dbSources
+      : DEFAULT_SOURCES;
 
     console.log(`Ingestion started by user ${user.id}, scraping ${sourcesToScrape.length} sources`);
 
