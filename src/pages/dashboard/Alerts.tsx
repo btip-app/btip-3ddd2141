@@ -33,6 +33,7 @@ import {
   Loader2,
   Download,
   MessageSquare,
+  Globe,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -125,6 +126,7 @@ export default function Alerts() {
   const [typeFilter, setTypeFilter] = useState("all");
   const [ingesting, setIngesting] = useState(false);
   const [ingestingReddit, setIngestingReddit] = useState(false);
+  const [ingestingMeta, setIngestingMeta] = useState(false);
 
   async function handleIngest() {
     setIngesting(true);
@@ -157,6 +159,23 @@ export default function Alerts() {
       toast.error(e.message || "Reddit ingestion failed");
     } finally {
       setIngestingReddit(false);
+    }
+  }
+
+  async function handleIngestMeta() {
+    setIngestingMeta(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-meta", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Meta SOCMINT: ${data.inserted} new incidents from ${data.targetsScraped} pages (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("SOCMINT_META", `Scraped ${data.targetsScraped}/${data.totalTargets} targets, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Meta ingest error:", e);
+      toast.error(e.message || "Meta ingestion failed");
+    } finally {
+      setIngestingMeta(false);
     }
   }
 
@@ -235,7 +254,7 @@ export default function Alerts() {
             size="sm"
             className="text-[10px] font-mono h-7"
             onClick={handleIngest}
-            disabled={ingesting || ingestingReddit}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
           >
             {ingesting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
             {ingesting ? "Ingesting…" : "Ingest OSINT"}
@@ -245,10 +264,20 @@ export default function Alerts() {
             size="sm"
             className="text-[10px] font-mono h-7"
             onClick={handleIngestReddit}
-            disabled={ingesting || ingestingReddit}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
           >
             {ingestingReddit ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MessageSquare className="h-3 w-3 mr-1" />}
             {ingestingReddit ? "Scanning…" : "Reddit SOCMINT"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestMeta}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
+          >
+            {ingestingMeta ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Globe className="h-3 w-3 mr-1" />}
+            {ingestingMeta ? "Scraping…" : "Meta SOCMINT"}
           </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />
