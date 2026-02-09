@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.ingest-incidents]
 verify_jwt = false
+
+[functions.ingest-reddit]
+verify_jwt = false
