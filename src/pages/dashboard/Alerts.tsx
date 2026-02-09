@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +30,7 @@ import {
   Building2,
   Trash2,
   Loader2,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -118,6 +121,24 @@ export default function Alerts() {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>({});
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [ingesting, setIngesting] = useState(false);
+
+  async function handleIngest() {
+    setIngesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-incidents", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Ingested ${data.inserted} new incidents (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("INGEST_RUN", `Scraped ${data.scraped} sources, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Ingest error:", e);
+      toast.error(e.message || "Ingestion failed");
+    } finally {
+      setIngesting(false);
+    }
+  }
 
   // Derive alerts from live incidents
   const alerts = useMemo(() => {
@@ -189,6 +210,16 @@ export default function Alerts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngest}
+            disabled={ingesting}
+          >
+            {ingesting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+            {ingesting ? "Ingesting…" : "Ingest OSINT"}
+          </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />
             LIVE
