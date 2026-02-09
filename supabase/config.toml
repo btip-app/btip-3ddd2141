@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.ingest-reddit]
 verify_jwt = false
+
+[functions.ingest-meta]
+verify_jwt = false
