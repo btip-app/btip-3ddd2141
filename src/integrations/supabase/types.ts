@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_requests: {
+        Row: {
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          organization: string | null
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          role_requested: string
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          full_name: string
+          id?: string
+          organization?: string | null
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          role_requested?: string
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          organization?: string | null
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          role_requested?: string
+          status?: string
+        }
+        Relationships: []
+      }
       assets: {
         Row: {
           country: string | null
