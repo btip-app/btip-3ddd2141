@@ -4,6 +4,7 @@ import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
+import { OsintSourcesManager } from "@/components/dashboard/OsintSourcesManager";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -369,49 +370,57 @@ export default function Alerts() {
           </div>
         </div>
 
-        {/* Right: Watchlists (driven by monitored regions) */}
-        <Card className="w-[300px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
-          <div className="px-3 pt-3 pb-2">
-            <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
-              <Eye className="h-3.5 w-3.5 text-primary" />
-              WATCHLISTS
-            </h2>
-            <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
-              {watchlist.length} regions monitored
-            </p>
-          </div>
-          <Separator />
-
-          <div className="flex-1 overflow-auto px-2 pb-2">
-            {watchlist.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-[10px] font-mono text-muted-foreground">
-                  No monitored regions. Add regions from the Daily Brief.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1.5 mt-2">
-                {watchlist.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
-                      <div className="text-[8px] font-mono text-muted-foreground">
-                        Added {item.addedAt}
+        {/* Right: Watchlists + OSINT Sources */}
+        <Card className="w-[320px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
+          <div className="flex-1 overflow-auto">
+            {/* Watchlists */}
+            <div className="px-3 pt-3 pb-2">
+              <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5 text-primary" />
+                WATCHLISTS
+              </h2>
+              <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
+                {watchlist.length} regions monitored
+              </p>
+            </div>
+            <Separator />
+            <div className="px-2 pb-2">
+              {watchlist.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-[10px] font-mono text-muted-foreground">
+                    No monitored regions. Add regions from the Daily Brief.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 mt-2">
+                  {watchlist.map(item => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
+                        <div className="text-[8px] font-mono text-muted-foreground">
+                          Added {item.addedAt}
+                        </div>
                       </div>
+                      {item.incidentCount > 0 && (
+                        <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
+                          {item.incidentCount}
+                        </Badge>
+                      )}
                     </div>
-                    {item.incidentCount > 0 && (
-                      <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
-                        {item.incidentCount}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* OSINT Sources */}
+            <Separator />
+            <div className="p-3">
+              <OsintSourcesManager />
+            </div>
           </div>
         </Card>
       </div>
