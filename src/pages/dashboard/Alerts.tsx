@@ -32,6 +32,7 @@ import {
   Trash2,
   Loader2,
   Download,
+  MessageSquare,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -123,6 +124,7 @@ export default function Alerts() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [ingesting, setIngesting] = useState(false);
+  const [ingestingReddit, setIngestingReddit] = useState(false);
 
   async function handleIngest() {
     setIngesting(true);
@@ -138,6 +140,23 @@ export default function Alerts() {
       toast.error(e.message || "Ingestion failed");
     } finally {
       setIngesting(false);
+    }
+  }
+
+  async function handleIngestReddit() {
+    setIngestingReddit(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-reddit", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Reddit SOCMINT: ${data.inserted} new incidents from ${data.postsFetched} posts (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("SOCMINT_REDDIT", `Scraped ${data.subredditsScraped} subreddits, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Reddit ingest error:", e);
+      toast.error(e.message || "Reddit ingestion failed");
+    } finally {
+      setIngestingReddit(false);
     }
   }
 
@@ -216,10 +235,20 @@ export default function Alerts() {
             size="sm"
             className="text-[10px] font-mono h-7"
             onClick={handleIngest}
-            disabled={ingesting}
+            disabled={ingesting || ingestingReddit}
           >
             {ingesting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
             {ingesting ? "Ingesting…" : "Ingest OSINT"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestReddit}
+            disabled={ingesting || ingestingReddit}
+          >
+            {ingestingReddit ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MessageSquare className="h-3 w-3 mr-1" />}
+            {ingestingReddit ? "Scanning…" : "Reddit SOCMINT"}
           </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />
