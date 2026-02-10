@@ -13,7 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Shield, AlertCircle, CheckCircle2 } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -104,7 +104,7 @@ export default function Auth() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="h-8 w-8 text-primary" />
+
             <span className="text-2xl font-mono font-bold tracking-tight">BTIP</span>
           </div>
           <h1 className="text-lg font-mono font-semibold text-foreground">
