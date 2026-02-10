@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-    "Access-Control-Allow-Methods": "POST, OPTIONS" //to remove 
+  "Access-Control-Allow-Methods": "POST, OPTIONS" //to remove 
 };
 
 serve(async (req: Request) => {
@@ -79,7 +79,7 @@ serve(async (req: Request) => {
     DO NOT include markdown code blocks (like \`\`\`json) in your response.`;
 
     // 6. Call Google Gemini with Streaming Enabled
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -91,7 +91,7 @@ serve(async (req: Request) => {
           })),
           { role: "user", parts: [{ text: query }] }
         ],
-        generationConfig: { 
+        generationConfig: {
           temperature: 0.2,
           topP: 0.8,
           topK: 40
@@ -99,7 +99,17 @@ serve(async (req: Request) => {
       }),
     });
 
-    // 7. Stream Processing
+    // 7. Check for API errors before streaming
+    if (!aiResponse.ok) {
+      const errText = await aiResponse.text();
+      console.error(`Gemini API error [${aiResponse.status}]:`, errText);
+      return new Response(JSON.stringify({ error: `AI analysis failed: ${aiResponse.status}` }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // 8. Stream Processing
     const reader = aiResponse.body!.getReader();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -117,44 +127,68 @@ serve(async (req: Request) => {
 
             for (const line of lines) {
               if (!line.startsWith("data: ")) continue;
-              
-              const jsonStr = line.slice(6);
-              const data = JSON.parse(jsonStr);
-              const delta = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-              if (delta) {
-                fullContent += delta;
-                // Send the typing-effect chunk to the dashboard
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
+              const jsonStr = line.slice(6).trim();
+              // Skip empty data or [DONE] markers
+              if (!jsonStr || jsonStr === "[DONE]") continue;
+
+              try {
+                const data = JSON.parse(jsonStr);
+                const delta = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (delta) {
+                  fullContent += delta;
+                  // Send the typing-effect chunk to the dashboard
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
+                }
+              } catch (parseErr) {
+                // Skip unparseable SSE lines (e.g. malformed JSON, keep-alive markers)
+                console.warn("Skipping unparseable SSE line:", jsonStr.slice(0, 100));
               }
             }
           }
 
-          // 8. Final Completion: Send the fully parsed JSON object for the UI cards
-          const cleanJson = fullContent.replace(/```json|```/g, "").trim();
+          // 9. Final Completion: Send the fully parsed JSON object for the UI cards
+          console.log("Full AI content length:", fullContent.length);
+          const cleanJson = fullContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
           let parsed;
           try {
             parsed = JSON.parse(cleanJson);
           } catch {
-            parsed = { 
-              riskLevel: "medium", 
-              summary: "Analysis complete but could not be formatted. Raw output: " + fullContent.slice(0, 100),
+            console.error("Failed to parse final AI JSON:", cleanJson.slice(0, 300));
+            parsed = {
+              riskLevel: "medium",
+              summary: fullContent.length > 0
+                ? "Analysis complete but response format was unexpected. Raw: " + fullContent.slice(0, 200)
+                : "Analysis failed — no response received from AI. Please check your GEMINI_API_KEY configuration.",
               evidence: [], recommendations: [], linkedIncidents: [], confidence: 50
             };
           }
-          
+
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
           controller.close();
         } catch (e) {
-          controller.error(e);
+          console.error("Stream processing error:", e);
+          // Send a fallback complete event so the UI doesn't hang
+          const fallback = {
+            riskLevel: "medium",
+            summary: "Analysis encountered a streaming error. Please try again.",
+            evidence: [], recommendations: [], linkedIncidents: [], confidence: 50
+          };
+          try {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed: fallback })}\n\n`));
+            controller.close();
+          } catch {
+            controller.error(e);
+          }
         }
       },
     });
 
     return new Response(stream, {
-      headers: { 
-        ...corsHeaders, 
-        "Content-Type": "text/event-stream", 
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache",
         "Connection": "keep-alive"
       },
@@ -162,9 +196,9 @@ serve(async (req: Request) => {
 
   } catch (e) {
     console.error("Copilot Error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { 
-      status: 500, 
-      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
   }
 });
