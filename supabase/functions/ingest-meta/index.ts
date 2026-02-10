@@ -39,7 +39,7 @@ async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<string>
 
     const data = await response.json();
     const markdown = data?.data?.markdown || data?.markdown || "";
-    return markdown.slice(0, 5000); // cap per page
+    return markdown.slice(0, 5001); // cap per page
   } catch (e) {
     console.warn(`Firecrawl error for ${url}:`, e);
     return "";
@@ -196,7 +196,7 @@ RULES:
 
     console.log(`AI extracted ${extractedIncidents.length} incidents from Meta`);
 
-    // Step 3: Deduplicate
+    // Step 3: Deduplicating 
     const { data: existingIncidents } = await supabase
       .from("incidents")
       .select("title")
