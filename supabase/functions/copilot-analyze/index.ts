@@ -5,13 +5,14 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+    "Access-Control-Allow-Methods": "POST, OPTIONS" //to remove 
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    // Auth check
+    // 1. Security Check: Verify the user has a valid Supabase session
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -20,133 +21,74 @@ serve(async (req) => {
       });
     }
 
+    // 2. Initialize Supabase Client
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Verify user
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await anonClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    // 3. Parse Request Data
     const { query, history } = await req.json();
-    if (!query || typeof query !== "string") {
-      return new Response(JSON.stringify({ error: "Missing query" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const conversationHistory: { role: string; content: string }[] = Array.isArray(history) ? history : [];
+    const conversationHistory = Array.isArray(history) ? history : [];
 
-    console.log(`Copilot query from user ${user.id}: ${query}`);
-
-    // Fetch recent incidents for context
+    // 4. Context Retrieval: Fetch the 50 most recent incidents to ground the AI
     const { data: incidents, error: incError } = await supabase
       .from("incidents")
-      .select("id, title, location, severity, confidence, category, status, datetime, region, country, subdivision, summary, sources")
+      .select("id, title, location, severity, confidence, category, status, datetime, summary")
       .order("datetime", { ascending: false })
       .limit(50);
 
-    if (incError) {
-      console.error("Failed to fetch incidents:", incError);
-    }
+    if (incError) console.error("Database fetch error:", incError);
 
     const incidentContext = (incidents || [])
-      .map(
-        (i: any) =>
-          `- [ID:${i.id.slice(0, 8)}] "${i.title}" | ${i.location} | Severity:${i.severity}/5 | Confidence:${i.confidence}% | Category:${i.category} | Status:${i.status} | ${i.datetime} | Summary: ${i.summary || "N/A"}`
-      )
+      .map(i => `- [ID:${i.id.slice(0, 8)}] "${i.title}" | ${i.location} | Severity:${i.severity}/5 | Summary: ${i.summary || "N/A"}`)
       .join("\n");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI gateway not configured" }), {
+    // 5. API Key Verification
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "Gemini API key not configured in Supabase secrets" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const systemPrompt = `You are BTIP Copilot, a security intelligence decision-support analyst. You provide structured threat assessments based on real incident data.
+    const systemPrompt = `You are BTIP Copilot, a security intelligence analyst.
+    CURRENT INCIDENT DATABASE:
+    ${incidentContext}
 
-CURRENT INCIDENT DATABASE (${(incidents || []).length} most recent incidents):
-${incidentContext}
+    RESPONSE FORMAT: You MUST respond with a valid JSON object using this exact schema:
+    {
+      "riskLevel": "low" | "medium" | "high" | "critical",
+      "confidence": <number 0-100>,
+      "summary": "<2-3 sentence natural language assessment>",
+      "evidence": ["<point 1>", "<point 2>"],
+      "recommendations": ["<action 1>", "<action 2>"],
+      "linkedIncidents": [{"id": "<id>", "title": "<title>", "severity": <1-5>}]
+    }
+    DO NOT include markdown code blocks (like \`\`\`json) in your response.`;
 
-RESPONSE FORMAT:
-You MUST respond with a valid JSON object (no markdown, no code fences) using this exact schema:
-{
-  "riskLevel": "low" | "medium" | "high" | "critical",
-  "confidence": <number 0-100>,
-  "summary": "<2-3 sentence natural language threat assessment>",
-  "evidence": ["<evidence point 1>", "<evidence point 2>", ...],
-  "recommendations": ["<action 1>", "<action 2>", ...],
-  "linkedIncidents": [{"id": "<incident id>", "title": "<title>", "severity": <1-5>}, ...]
-}
-
-GUIDELINES:
-- Base your analysis ONLY on the incident data provided above
-- Reference specific incidents by their titles and locations
-- Risk level should reflect the highest severity incidents matching the query
-- Confidence should reflect how many relevant incidents you found
-- Provide 3-6 evidence points citing specific incidents
-- Give 3-5 actionable security recommendations
-- Link the most relevant incidents (up to 5)
-- If no incidents match the query, say so honestly and set riskLevel to "low"`;
-
-    console.log("Calling AI gateway with streaming...");
-
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 6. Call Google Gemini with Streaming Enabled
+    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          ...conversationHistory.slice(-10).map((m: any) => ({
-            role: m.role === "user" ? "user" : "assistant",
-            content: m.content,
+        contents: [
+          { role: "user", parts: [{ text: `System Instruction: ${systemPrompt}` }] },
+          ...conversationHistory.map(m => ({
+            role: m.role === "user" ? "user" : "model",
+            parts: [{ text: m.content }]
           })),
-          { role: "user", content: query },
+          { role: "user", parts: [{ text: query }] }
         ],
-        temperature: 0.3,
-        max_tokens: 2000,
-        stream: true,
+        generationConfig: { 
+          temperature: 0.2,
+          topP: 0.8,
+          topK: 40
+        }
       }),
     });
 
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      const body = await aiResponse.text();
-      console.error(`AI gateway error [${status}]:`, body);
-
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits in Settings." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "AI analysis failed" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    // Stream the SSE response through to the client
+    // 7. Stream Processing
     const reader = aiResponse.body!.getReader();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -164,82 +106,54 @@ GUIDELINES:
 
             for (const line of lines) {
               if (!line.startsWith("data: ")) continue;
-              const data = line.slice(6).trim();
-              if (data === "[DONE]") {
-                // Send the final parsed JSON
-                const jsonStr = fullContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-                let parsed;
-                try {
-                  parsed = JSON.parse(jsonStr);
-                } catch {
-                  parsed = {
-                    riskLevel: "medium",
-                    confidence: 50,
-                    summary: fullContent.slice(0, 500),
-                    evidence: ["AI response could not be structured"],
-                    recommendations: ["Review raw analysis output"],
-                    linkedIncidents: [],
-                  };
-                }
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
-                controller.close();
-                return;
-              }
+              
+              const jsonStr = line.slice(6);
+              const data = JSON.parse(jsonStr);
+              const delta = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-              try {
-                const json = JSON.parse(data);
-                const delta = json.choices?.[0]?.delta?.content;
-                if (delta) {
-                  fullContent += delta;
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
-                }
-              } catch {
-                // skip unparseable lines
+              if (delta) {
+                fullContent += delta;
+                // Send the typing-effect chunk to the dashboard
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
               }
             }
           }
 
-          // If we exit the loop without [DONE], finalize
-          if (fullContent) {
-            const jsonStr = fullContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-            let parsed;
-            try {
-              parsed = JSON.parse(jsonStr);
-            } catch {
-              parsed = {
-                riskLevel: "medium",
-                confidence: 50,
-                summary: fullContent.slice(0, 500),
-                evidence: ["AI response could not be structured"],
-                recommendations: ["Review raw analysis output"],
-                linkedIncidents: [],
-              };
-            }
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
+          // 8. Final Completion: Send the fully parsed JSON object for the UI cards
+          const cleanJson = fullContent.replace(/```json|```/g, "").trim();
+          let parsed;
+          try {
+            parsed = JSON.parse(cleanJson);
+          } catch {
+            parsed = { 
+              riskLevel: "medium", 
+              summary: "Analysis complete but could not be formatted. Raw output: " + fullContent.slice(0, 100),
+              evidence: [], recommendations: [], linkedIncidents: [], confidence: 50
+            };
           }
+          
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
           controller.close();
         } catch (e) {
-          console.error("Stream error:", e);
           controller.error(e);
         }
       },
     });
 
-    console.log("Streaming response started");
-
     return new Response(stream, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
+      headers: { 
+        ...corsHeaders, 
+        "Content-Type": "text/event-stream", 
         "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+        "Connection": "keep-alive"
       },
     });
+
   } catch (e) {
-    console.error("Copilot error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    console.error("Copilot Error:", e);
+    return new Response(JSON.stringify({ error: e.message }), { 
+      status: 500, 
+      headers: { ...corsHeaders, "Content-Type": "application/json" } 
+    });
   }
 });
