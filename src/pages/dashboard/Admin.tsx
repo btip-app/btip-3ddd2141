@@ -21,8 +21,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Settings, Users, Shield, Loader2 } from 'lucide-react';
+import { Settings, Users, Shield, Loader2, UserPlus, Check, X } from 'lucide-react';
 
 interface UserWithRole {
   user_id: string;
@@ -48,11 +49,39 @@ export default function Admin() {
   const [users, setUsers] = useState<UserWithRole[]>([]);
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(true);
 
   useEffect(() => {
     if (!isAdmin) return;
     fetchUsers();
+    fetchRequests();
   }, [isAdmin]);
+
+  const fetchRequests = async () => {
+    setRequestsLoading(true);
+    const { data, error } = await supabase
+      .from('access_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (data) setRequests(data);
+    if (error) console.error('Failed to fetch requests:', error);
+    setRequestsLoading(false);
+  };
+
+  const handleRequestAction = async (id: string, status: 'approved' | 'denied') => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error } = await supabase
+      .from('access_requests')
+      .update({ status, reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) {
+      toast.error(error.message);
+    } else {
+      toast.success(`Request ${status}`);
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+    }
+  };
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -127,6 +156,8 @@ export default function Admin() {
     return acc;
   }, {} as Record<string, number>);
 
+  const pendingCount = requests.filter(r => r.status === 'pending').length;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between border-b border-border pb-3">
@@ -139,99 +170,221 @@ export default function Admin() {
             User management & role configuration • {users.length} users registered
           </p>
         </div>
+        {pendingCount > 0 && (
+          <Badge variant="destructive" className="text-[9px] font-mono">
+            {pendingCount} pending request{pendingCount !== 1 ? 's' : ''}
+          </Badge>
+        )}
       </div>
 
-      {/* Role summary cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        {VALID_ROLES.map(role => (
-          <Card key={role} className="bg-card border-border">
-            <CardContent className="p-4 text-center">
-              <div className="text-2xl font-mono font-bold text-foreground">{roleCounts[role]}</div>
-              <Badge className={`${ROLE_COLORS[role]} text-[9px] font-mono mt-1 uppercase`}>
-                {role}
-              </Badge>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* User management table */}
-      <Card className="bg-card border-border overflow-hidden">
-        <CardHeader className="py-3 px-4">
-          <CardTitle className="text-sm font-mono flex items-center gap-2">
-            <Users className="h-4 w-4 text-primary" />
-            USER MANAGEMENT
-          </CardTitle>
-        </CardHeader>
-        <Table>
-          <TableHeader>
-            <TableRow className="border-border">
-              <TableHead className="text-[9px] font-mono text-muted-foreground">USER ID</TableHead>
-              <TableHead className="text-[9px] font-mono text-muted-foreground">NAME</TableHead>
-              <TableHead className="text-[9px] font-mono text-muted-foreground">ORGANIZATION</TableHead>
-              <TableHead className="text-[9px] font-mono text-muted-foreground">CURRENT ROLE</TableHead>
-              <TableHead className="text-[9px] font-mono text-muted-foreground">CHANGE ROLE</TableHead>
-              <TableHead className="text-[9px] font-mono text-muted-foreground">JOINED</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-12">
-                  <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
-                </TableCell>
-              </TableRow>
-            ) : users.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-12">
-                  <Shield className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
-                  <p className="text-[10px] font-mono text-muted-foreground">No users found</p>
-                </TableCell>
-              </TableRow>
-            ) : (
-              users.map(user => (
-                <TableRow key={user.user_id} className="border-border">
-                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
-                    {user.user_id.slice(0, 12)}…
-                  </TableCell>
-                  <TableCell className="text-[10px] font-mono text-foreground py-2">
-                    {user.full_name || '—'}
-                  </TableCell>
-                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
-                    {user.organization || '—'}
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <Badge className={`${ROLE_COLORS[user.role] || ROLE_COLORS.viewer} text-[8px] font-mono uppercase`}>
-                      {user.role}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="py-2">
-                    <Select
-                      value={user.role}
-                      onValueChange={(v) => handleRoleChange(user.user_id, v)}
-                      disabled={updatingId === user.user_id}
-                    >
-                      <SelectTrigger className="w-[120px] h-7 text-[10px] font-mono bg-secondary border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
-                        {VALID_ROLES.map(r => (
-                          <SelectItem key={r} value={r} className="text-[10px] font-mono capitalize">
-                            {r}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
-                </TableRow>
-              ))
+      <Tabs defaultValue="users">
+        <TabsList className="bg-secondary border border-border">
+          <TabsTrigger value="users" className="text-[10px] font-mono">
+            <Users className="h-3 w-3 mr-1" /> Users
+          </TabsTrigger>
+          <TabsTrigger value="requests" className="text-[10px] font-mono">
+            <UserPlus className="h-3 w-3 mr-1" /> Access Requests
+            {pendingCount > 0 && (
+              <Badge variant="destructive" className="ml-1.5 text-[7px] px-1 py-0">{pendingCount}</Badge>
             )}
-          </TableBody>
-        </Table>
-      </Card>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="users" className="space-y-4 mt-4">
+          {/* Role summary cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {VALID_ROLES.map(role => (
+              <Card key={role} className="bg-card border-border">
+                <CardContent className="p-4 text-center">
+                  <div className="text-2xl font-mono font-bold text-foreground">{roleCounts[role]}</div>
+                  <Badge className={`${ROLE_COLORS[role]} text-[9px] font-mono mt-1 uppercase`}>
+                    {role}
+                  </Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* User management table */}
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <Users className="h-4 w-4 text-primary" />
+                USER MANAGEMENT
+              </CardTitle>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">USER ID</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">NAME</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">ORGANIZATION</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">CURRENT ROLE</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">CHANGE ROLE</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">JOINED</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : users.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="text-center py-12">
+                      <Shield className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-[10px] font-mono text-muted-foreground">No users found</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  users.map(user => (
+                    <TableRow key={user.user_id} className="border-border">
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {user.user_id.slice(0, 12)}…
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-foreground py-2">
+                        {user.full_name || '—'}
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {user.organization || '—'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge className={`${ROLE_COLORS[user.role] || ROLE_COLORS.viewer} text-[8px] font-mono uppercase`}>
+                          {user.role}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Select
+                          value={user.role}
+                          onValueChange={(v) => handleRoleChange(user.user_id, v)}
+                          disabled={updatingId === user.user_id}
+                        >
+                          <SelectTrigger className="w-[120px] h-7 text-[10px] font-mono bg-secondary border-border">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-card border-border">
+                            {VALID_ROLES.map(r => (
+                              <SelectItem key={r} value={r} className="text-[10px] font-mono capitalize">
+                                {r}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="requests" className="mt-4">
+          <Card className="bg-card border-border overflow-hidden">
+            <CardHeader className="py-3 px-4">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <UserPlus className="h-4 w-4 text-primary" />
+                ACCESS REQUESTS
+              </CardTitle>
+            </CardHeader>
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border">
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">NAME</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">EMAIL</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">ORG</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">ROLE</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">REASON</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">STATUS</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">DATE</TableHead>
+                  <TableHead className="text-[9px] font-mono text-muted-foreground">ACTIONS</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {requestsLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary mx-auto" />
+                    </TableCell>
+                  </TableRow>
+                ) : requests.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="text-center py-12">
+                      <UserPlus className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                      <p className="text-[10px] font-mono text-muted-foreground">No access requests</p>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  requests.map(req => (
+                    <TableRow key={req.id} className="border-border">
+                      <TableCell className="text-[10px] font-mono text-foreground py-2">
+                        {req.full_name}
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {req.email}
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {req.organization || '—'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge variant="outline" className="text-[8px] font-mono uppercase">
+                          {req.role_requested}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2 max-w-[150px] truncate">
+                        {req.reason || '—'}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <Badge className={`text-[8px] font-mono uppercase ${
+                          req.status === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                          req.status === 'approved' ? 'bg-primary/20 text-primary' :
+                          'bg-destructive/20 text-destructive'
+                        }`}>
+                          {req.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-[10px] font-mono text-muted-foreground py-2">
+                        {new Date(req.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="py-2">
+                        {req.status === 'pending' ? (
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              title="Approve"
+                              onClick={() => handleRequestAction(req.id, 'approved')}
+                            >
+                              <Check className="h-3.5 w-3.5 text-primary" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              title="Deny"
+                              onClick={() => handleRequestAction(req.id, 'denied')}
+                            >
+                              <X className="h-3.5 w-3.5 text-destructive" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] font-mono text-muted-foreground">—</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

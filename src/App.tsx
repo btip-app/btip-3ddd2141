@@ -27,6 +27,7 @@ import IncidentReport from "./pages/dashboard/IncidentReport";
 import Escalations from "./pages/dashboard/Escalations";
 import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
+import Socmint from "./pages/dashboard/Socmint";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -87,6 +88,11 @@ const App = () => (
                 <Route path="audit-log" element={
                   <RoleGate allowed={['admin']} fallback="denied">
                     <AuditLog />
+                  </RoleGate>
+                } />
+                <Route path="socmint" element={
+                  <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
+                    <Socmint />
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />

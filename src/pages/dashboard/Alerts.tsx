@@ -1,7 +1,10 @@
 import { useState, useMemo } from "react";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
+import { OsintSourcesManager } from "@/components/dashboard/OsintSourcesManager";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +31,9 @@ import {
   Building2,
   Trash2,
   Loader2,
+  Download,
+  MessageSquare,
+  Globe,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -118,6 +124,60 @@ export default function Alerts() {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>({});
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [ingesting, setIngesting] = useState(false);
+  const [ingestingReddit, setIngestingReddit] = useState(false);
+  const [ingestingMeta, setIngestingMeta] = useState(false);
+
+  async function handleIngest() {
+    setIngesting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-incidents", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Ingested ${data.inserted} new incidents (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("INGEST_RUN", `Scraped ${data.scraped} sources, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Ingest error:", e);
+      toast.error(e.message || "Ingestion failed");
+    } finally {
+      setIngesting(false);
+    }
+  }
+
+  async function handleIngestReddit() {
+    setIngestingReddit(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-reddit", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Reddit SOCMINT: ${data.inserted} new incidents from ${data.postsFetched} posts (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("SOCMINT_REDDIT", `Scraped ${data.subredditsScraped} subreddits, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Reddit ingest error:", e);
+      toast.error(e.message || "Reddit ingestion failed");
+    } finally {
+      setIngestingReddit(false);
+    }
+  }
+
+  async function handleIngestMeta() {
+    setIngestingMeta(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-meta", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Meta SOCMINT: ${data.inserted} new incidents from ${data.targetsScraped} pages (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("SOCMINT_META", `Scraped ${data.targetsScraped}/${data.totalTargets} targets, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("Meta ingest error:", e);
+      toast.error(e.message || "Meta ingestion failed");
+    } finally {
+      setIngestingMeta(false);
+    }
+  }
 
   // Derive alerts from live incidents
   const alerts = useMemo(() => {
@@ -189,6 +249,36 @@ export default function Alerts() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngest}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
+          >
+            {ingesting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
+            {ingesting ? "Ingesting…" : "Ingest OSINT"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestReddit}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
+          >
+            {ingestingReddit ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MessageSquare className="h-3 w-3 mr-1" />}
+            {ingestingReddit ? "Scanning…" : "Reddit SOCMINT"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestMeta}
+            disabled={ingesting || ingestingReddit || ingestingMeta}
+          >
+            {ingestingMeta ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Globe className="h-3 w-3 mr-1" />}
+            {ingestingMeta ? "Scraping…" : "Meta SOCMINT"}
+          </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />
             LIVE
@@ -338,49 +428,57 @@ export default function Alerts() {
           </div>
         </div>
 
-        {/* Right: Watchlists (driven by monitored regions) */}
-        <Card className="w-[300px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
-          <div className="px-3 pt-3 pb-2">
-            <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
-              <Eye className="h-3.5 w-3.5 text-primary" />
-              WATCHLISTS
-            </h2>
-            <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
-              {watchlist.length} regions monitored
-            </p>
-          </div>
-          <Separator />
-
-          <div className="flex-1 overflow-auto px-2 pb-2">
-            {watchlist.length === 0 ? (
-              <div className="p-4 text-center">
-                <p className="text-[10px] font-mono text-muted-foreground">
-                  No monitored regions. Add regions from the Daily Brief.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-1.5 mt-2">
-                {watchlist.map(item => (
-                  <div
-                    key={item.id}
-                    className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
-                  >
-                    <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
-                      <div className="text-[8px] font-mono text-muted-foreground">
-                        Added {item.addedAt}
+        {/* Right: Watchlists + OSINT Sources */}
+        <Card className="w-[320px] flex-shrink-0 flex flex-col border-border bg-card overflow-hidden">
+          <div className="flex-1 overflow-auto">
+            {/* Watchlists */}
+            <div className="px-3 pt-3 pb-2">
+              <h2 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
+                <Eye className="h-3.5 w-3.5 text-primary" />
+                WATCHLISTS
+              </h2>
+              <p className="text-[9px] font-mono text-muted-foreground mt-0.5">
+                {watchlist.length} regions monitored
+              </p>
+            </div>
+            <Separator />
+            <div className="px-2 pb-2">
+              {watchlist.length === 0 ? (
+                <div className="p-4 text-center">
+                  <p className="text-[10px] font-mono text-muted-foreground">
+                    No monitored regions. Add regions from the Daily Brief.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 mt-2">
+                  {watchlist.map(item => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border"
+                    >
+                      <MapPin className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-mono text-foreground truncate">{item.name}</div>
+                        <div className="text-[8px] font-mono text-muted-foreground">
+                          Added {item.addedAt}
+                        </div>
                       </div>
+                      {item.incidentCount > 0 && (
+                        <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
+                          {item.incidentCount}
+                        </Badge>
+                      )}
                     </div>
-                    {item.incidentCount > 0 && (
-                      <Badge variant="destructive" className="text-[7px] font-mono px-1 py-0">
-                        {item.incidentCount}
-                      </Badge>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* OSINT Sources */}
+            <Separator />
+            <div className="p-3">
+              <OsintSourcesManager />
+            </div>
           </div>
         </Card>
       </div>

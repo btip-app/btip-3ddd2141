@@ -3,6 +3,7 @@ import {
   Map, 
   Package,
   Bell, 
+  BarChart3,
   Bot,
   Settings,
   Shield,
@@ -42,6 +43,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Threat Map', url: '/dashboard/map', icon: Map, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Assets & Routes', url: '/dashboard/assets', icon: Package, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Alerts', url: '/dashboard/alerts', icon: Bell, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'SOCMINT', url: '/dashboard/socmint', icon: BarChart3, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Copilot', url: '/dashboard/copilot', icon: Bot, roles: ['admin', 'analyst', 'operator'] },
 ];
 
