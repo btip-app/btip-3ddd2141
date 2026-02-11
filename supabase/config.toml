@@ -11,3 +11,9 @@ verify_jwt = false
 
 [functions.ingest-meta]
 verify_jwt = false
+
+[functions.ingest-gdelt]
+verify_jwt = false
+
+[functions.ingest-acled]
+verify_jwt = false
