@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = "pk.eyJ1IjoiZGljaGlleHBsaWNpdCIsImEiOiJjbWxmM3F3NHIwMG9wM2Vwdnprcjc0cmx1In0.WIfFr47OLll54VZXQy1Vsg";
 
 const THREAT_TYPES = [
   { value: "all", label: "All Threats" },

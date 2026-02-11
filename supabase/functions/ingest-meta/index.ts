@@ -39,7 +39,7 @@ async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<string>
 
     const data = await response.json();
     const markdown = data?.data?.markdown || data?.markdown || "";
-    return markdown.slice(0, 5001); // cap per page
+    return markdown.slice(0, 5000); // cap per page
   } catch (e) {
     console.warn(`Firecrawl error for ${url}:`, e);
     return "";
@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify({ error: "AI gateway not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -155,14 +155,14 @@ RULES:
 - Return at most 15 incidents
 - If no real incidents found, return []`;
 
-    const aiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${GEMINI_API_KEY}`,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "google/gemini-2.5-flash",
         messages: [{ role: "user", content: extractionPrompt }],
         temperature: 0.1,
         max_tokens: 4000,
@@ -196,7 +196,7 @@ RULES:
 
     console.log(`AI extracted ${extractedIncidents.length} incidents from Meta`);
 
-    // Step 3: Deduplicating 
+    // Step 3: Deduplicate
     const { data: existingIncidents } = await supabase
       .from("incidents")
       .select("title")

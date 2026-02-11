@@ -55,7 +55,7 @@ import {
   type Subdivision,
 } from "@/data/geography";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = "pk.eyJ1IjoiZGljaGlleHBsaWNpdCIsImEiOiJjbWxmM3F3NHIwMG9wM2Vwdnprcjc0cmx1In0.WIfFr47OLll54VZXQy1Vsg";
 
 type AssetType = "office" | "residence" | "infrastructure" | "route";
 
