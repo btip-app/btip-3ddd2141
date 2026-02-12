@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
 
     console.log(`Ingestion started by user ${user.id}, scraping ${sourcesToScrape.length} sources`);
 
-    // Step 1: Scrape each source via Firecrawl
+    //  Scraping each source via Firecrawl
     const scrapedContent: string[] = [];
     for (const source of sourcesToScrape) {
       try {
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
 
     console.log(`Scraped ${scrapedContent.length} sources, sending to AI for extraction`);
 
-    // Step 2: Use AI to extract structured incidents from scraped content
+    //  Using AI to extract structured incidents from scraped content
     const extractionPrompt = `You are a security intelligence analyst. Extract real security incidents from the following scraped news content.
 
 SCRAPED CONTENT:
@@ -194,7 +194,7 @@ RULES:
 
     console.log(`AI extracted ${extractedIncidents.length} incidents`);
 
-    // Step 3: Deduplicate against existing incidents (by title similarity)
+    //  Deduplicating against existing incidents (by title similarity)
     const { data: existingIncidents } = await supabase
       .from("incidents")
       .select("title")
@@ -209,7 +209,7 @@ RULES:
 
     console.log(`${newIncidents.length} new incidents after deduplication`);
 
-    // Step 4: Insert into database
+    // Inserting into database
     if (newIncidents.length > 0) {
       const rows = newIncidents.map((inc: any) => ({
         title: (inc.title || "Unknown Incident").slice(0, 200),
