@@ -29,6 +29,7 @@ import Escalations from "./pages/dashboard/Escalations";
 import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import Socmint from "./pages/dashboard/Socmint";
+import KeysUsed from "./pages/dashboard/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -98,6 +99,11 @@ const App = () => (
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />
+                <Route path="keys" element={
+                  <RoleGate allowed={['admin']} fallback="denied">
+                    <KeysUsed />
+                  </RoleGate>
+                } />
                 <Route path="profile" element={<ProfileSettings />} />
               </Route>
               

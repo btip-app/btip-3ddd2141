@@ -1,0 +1,213 @@
+import { Key, Server, Globe, Shield, Cloud, MessageSquare, Search, Bot, MapPin, Thermometer, Monitor } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+interface KeyEntry {
+  name: string;
+  usedIn: string;
+  usage: string;
+  icon: typeof Key;
+  category: 'infrastructure' | 'ingestion' | 'enrichment' | 'frontend';
+}
+
+const edgeFunctionKeys: KeyEntry[] = [
+  {
+    name: 'SUPABASE_URL',
+    usedIn: 'All edge functions',
+    usage: 'Deno.env.get("SUPABASE_URL") → passed to createClient(supabaseUrl, ...)',
+    icon: Server,
+    category: 'infrastructure',
+  },
+  {
+    name: 'SUPABASE_ANON_KEY',
+    usedIn: 'All edge functions',
+    usage: 'Deno.env.get("SUPABASE_ANON_KEY") → creates auth-scoped Supabase client',
+    icon: Server,
+    category: 'infrastructure',
+  },
+  {
+    name: 'SUPABASE_SERVICE_ROLE_KEY',
+    usedIn: 'admin-signup, geocode-incidents, all ingest-* functions',
+    usage: 'Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") → creates admin client that bypasses RLS',
+    icon: Shield,
+    category: 'infrastructure',
+  },
+  {
+    name: 'ADMIN_SIGNUP_CODE',
+    usedIn: 'admin-signup',
+    usage: 'Deno.env.get("ADMIN_SIGNUP_CODE") → compared against user-submitted code to authorize admin registration',
+    icon: Shield,
+    category: 'infrastructure',
+  },
+  {
+    name: 'OPENCAGE_API_KEY',
+    usedIn: 'geocode-incidents',
+    usage: 'Deno.env.get("OPENCAGE_API_KEY") → appended as &key=${OPENCAGE_API_KEY} to https://api.opencagedata.com/geocode/v1/json?q=...',
+    icon: MapPin,
+    category: 'enrichment',
+  },
+  {
+    name: 'ABUSEIPDB_API_KEY',
+    usedIn: 'check-ip-reputation',
+    usage: 'Deno.env.get("ABUSEIPDB_API_KEY") → sent as HTTP header Key: ${ABUSEIPDB_API_KEY} to https://api.abuseipdb.com/api/v2/check',
+    icon: Monitor,
+    category: 'enrichment',
+  },
+  {
+    name: 'OPENWEATHERMAP_API_KEY',
+    usedIn: 'weather-risk',
+    usage: 'Deno.env.get("OPENWEATHERMAP_API_KEY") → appended as &appid=${OPENWEATHERMAP_API_KEY} to OpenWeatherMap API',
+    icon: Thermometer,
+    category: 'enrichment',
+  },
+  {
+    name: 'TELEGRAM_BOT_TOKEN',
+    usedIn: 'ingest-telegram',
+    usage: 'Deno.env.get("TELEGRAM_BOT_TOKEN") → used in URL https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/...',
+    icon: MessageSquare,
+    category: 'ingestion',
+  },
+  {
+    name: 'TWITTER_CONSUMER_KEY',
+    usedIn: 'ingest-twitter',
+    usage: 'Deno.env.get("TWITTER_CONSUMER_KEY") → OAuth 1.0a signature generation',
+    icon: Globe,
+    category: 'ingestion',
+  },
+  {
+    name: 'TWITTER_CONSUMER_SECRET',
+    usedIn: 'ingest-twitter',
+    usage: 'Deno.env.get("TWITTER_CONSUMER_SECRET") → OAuth 1.0a HMAC-SHA1 signing key',
+    icon: Globe,
+    category: 'ingestion',
+  },
+  {
+    name: 'TWITTER_ACCESS_TOKEN',
+    usedIn: 'ingest-twitter',
+    usage: 'Deno.env.get("TWITTER_ACCESS_TOKEN") → OAuth 1.0a token parameter',
+    icon: Globe,
+    category: 'ingestion',
+  },
+  {
+    name: 'TWITTER_ACCESS_TOKEN_SECRET',
+    usedIn: 'ingest-twitter',
+    usage: 'Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET") → OAuth 1.0a signing key (combined with consumer secret)',
+    icon: Globe,
+    category: 'ingestion',
+  },
+  {
+    name: 'FIRECRAWL_API_KEY',
+    usedIn: 'ingest-incidents, ingest-meta',
+    usage: 'Deno.env.get("FIRECRAWL_API_KEY") → sent as Authorization: Bearer ${FIRECRAWL_API_KEY} to Firecrawl scraping API',
+    icon: Search,
+    category: 'ingestion',
+  },
+  {
+    name: 'LOVABLE_API_KEY',
+    usedIn: 'copilot-analyze',
+    usage: 'Deno.env.get("LOVABLE_API_KEY") → AI gateway authorization header',
+    icon: Bot,
+    category: 'infrastructure',
+  },
+];
+
+const frontendKeys: KeyEntry[] = [
+  {
+    name: 'VITE_SUPABASE_URL',
+    usedIn: 'src/integrations/supabase/client.ts',
+    usage: 'import.meta.env.VITE_SUPABASE_URL → Supabase client initialization',
+    icon: Server,
+    category: 'frontend',
+  },
+  {
+    name: 'VITE_SUPABASE_PUBLISHABLE_KEY',
+    usedIn: 'src/integrations/supabase/client.ts',
+    usage: 'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY → Supabase anon key for client',
+    icon: Key,
+    category: 'frontend',
+  },
+  {
+    name: 'VITE_MAPBOX_TOKEN',
+    usedIn: 'src/pages/dashboard/ThreatMap.tsx',
+    usage: 'import.meta.env.VITE_MAPBOX_TOKEN or Deno secret → mapboxgl.accessToken for map rendering',
+    icon: Cloud,
+    category: 'frontend',
+  },
+];
+
+const categoryColors: Record<string, string> = {
+  infrastructure: 'bg-primary/15 text-primary border-primary/30',
+  ingestion: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
+  enrichment: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
+  frontend: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+};
+
+function KeyRow({ entry }: { entry: KeyEntry }) {
+  return (
+    <div className="flex items-start gap-3 p-3 rounded-lg border border-border bg-card hover:bg-secondary/50 transition-colors">
+      <entry.icon className="h-4 w-4 mt-1 text-muted-foreground flex-shrink-0" />
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <code className="text-sm font-mono font-bold text-foreground">{entry.name}</code>
+          <Badge variant="outline" className={`text-[10px] font-mono uppercase ${categoryColors[entry.category]}`}>
+            {entry.category}
+          </Badge>
+        </div>
+        <p className="text-xs text-muted-foreground font-mono">
+          <span className="text-primary/80">Used in:</span> {entry.usedIn}
+        </p>
+        <p className="text-xs text-muted-foreground/70 font-mono break-all">{entry.usage}</p>
+      </div>
+    </div>
+  );
+}
+
+export default function KeysUsed() {
+  return (
+    <div className="space-y-6 p-6 max-w-5xl">
+      <div>
+        <h1 className="text-2xl font-mono font-bold text-foreground">Keys &amp; Tokens Reference</h1>
+        <p className="text-sm text-muted-foreground font-mono mt-1">
+          Every secret and environment variable used across the platform
+        </p>
+      </div>
+
+      {/* Legend */}
+      <div className="flex flex-wrap gap-2">
+        {Object.entries(categoryColors).map(([cat, cls]) => (
+          <Badge key={cat} variant="outline" className={`text-[10px] font-mono uppercase ${cls}`}>
+            {cat}
+          </Badge>
+        ))}
+      </div>
+
+      <Card className="border-border bg-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Server className="h-4 w-4" />
+            Edge Function Secrets — Deno.env.get("...")
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {edgeFunctionKeys.map((entry) => (
+            <KeyRow key={entry.name} entry={entry} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="border-border bg-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-sm font-mono uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+            <Globe className="h-4 w-4" />
+            Frontend .env Variables — import.meta.env.VITE_*
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {frontendKeys.map((entry) => (
+            <KeyRow key={entry.name} entry={entry} />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
