@@ -37,6 +37,7 @@ import {
   Database,
   Newspaper,
   MapPinPlus,
+  ShieldAlert,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -132,6 +133,7 @@ export default function Alerts() {
   const [ingestingMeta, setIngestingMeta] = useState(false);
   const [ingestingGdelt, setIngestingGdelt] = useState(false);
   const [ingestingAcled, setIngestingAcled] = useState(false);
+  const [ingestingCyber, setIngestingCyber] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
 
   async function handleIngest() {
@@ -216,6 +218,23 @@ export default function Alerts() {
       toast.error(e.message || "ACLED ingestion failed");
     } finally {
       setIngestingAcled(false);
+    }
+  }
+
+  async function handleIngestCyber() {
+    setIngestingCyber(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-cyber", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Cyber Intel: ${data.inserted} new threats (AbuseIPDB: ${data.sources?.abuseipdb || 0}, OTX: ${data.sources?.alienvault_otx || 0})`);
+      auditLog("INGEST_CYBER", `Ingested ${data.inserted} cyber threats, ${data.duplicatesSkipped} duplicates skipped`);
+    } catch (e: any) {
+      console.error("Cyber ingest error:", e);
+      toast.error(e.message || "Cyber threat ingestion failed");
+    } finally {
+      setIngestingCyber(false);
     }
   }
 
@@ -355,6 +374,16 @@ export default function Alerts() {
           >
             {ingestingMeta ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Globe className="h-3 w-3 mr-1" />}
             {ingestingMeta ? "Scraping…" : "Meta"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestCyber}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled || ingestingCyber}
+          >
+            {ingestingCyber ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldAlert className="h-3 w-3 mr-1" />}
+            {ingestingCyber ? "Scanning…" : "Cyber Intel"}
           </Button>
           <Button
             variant="outline"
