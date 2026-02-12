@@ -48,6 +48,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { computeExposureScore, computeRouteExposureScore, EXPOSURE_BG_CLASSES, type ExposureResult } from "@/lib/exposureScore";
+import { ExposureBreakdownPanel } from "@/components/dashboard/ExposureBreakdownPanel";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -567,24 +568,13 @@ export default function Assets() {
                    {selectedAsset.tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">{selectedAsset.tags.map(t => <Badge key={t} variant="outline" className="text-[8px] font-mono">{t}</Badge>)}</div>
                   )}
-                  {/* Exposure Score */}
+                  {/* Exposure Score Breakdown */}
                   {assetExposure[selectedAsset.id] && (
-                    <div className="bg-secondary/30 rounded p-2 mt-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Gauge className="h-3 w-3 text-primary" />
-                        <span className="text-[9px] font-mono font-bold text-foreground">EXPOSURE SCORE</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-mono font-bold text-foreground">{assetExposure[selectedAsset.id].score}</span>
-                        <Badge className={`${EXPOSURE_BG_CLASSES[assetExposure[selectedAsset.id].level]} text-[8px] font-mono px-1.5 py-0`}>
-                          {assetExposure[selectedAsset.id].level.toUpperCase()}
-                        </Badge>
-                        <span className="text-[8px] font-mono text-muted-foreground ml-auto">{assetExposure[selectedAsset.id].nearbyCount} incidents within 50km</span>
-                      </div>
-                      <div className="text-[7px] font-mono text-muted-foreground mt-1">
-                        Weighted by proximity, severity, recency & density
-                      </div>
-                    </div>
+                    <ExposureBreakdownPanel
+                      exposure={assetExposure[selectedAsset.id]}
+                      incidents={incidents.filter(i => i.lat != null && i.lng != null)}
+                      label="EXPOSURE SCORE"
+                    />
                   )}
                   {(assetProximity[selectedAsset.id] || []).length > 0 && (
                     <div>
@@ -613,24 +603,13 @@ export default function Assets() {
                   {selectedRoute.tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">{selectedRoute.tags.map(t => <Badge key={t} variant="outline" className="text-[8px] font-mono">{t}</Badge>)}</div>
                   )}
-                  {/* Route Exposure Score */}
+                  {/* Route Exposure Score Breakdown */}
                   {routeExposure[selectedRoute.id] && (
-                    <div className="bg-secondary/30 rounded p-2 mt-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Gauge className="h-3 w-3 text-primary" />
-                        <span className="text-[9px] font-mono font-bold text-foreground">ROUTE EXPOSURE SCORE</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-2xl font-mono font-bold text-foreground">{routeExposure[selectedRoute.id].score}</span>
-                        <Badge className={`${EXPOSURE_BG_CLASSES[routeExposure[selectedRoute.id].level]} text-[8px] font-mono px-1.5 py-0`}>
-                          {routeExposure[selectedRoute.id].level.toUpperCase()}
-                        </Badge>
-                        <span className="text-[8px] font-mono text-muted-foreground ml-auto">{routeExposure[selectedRoute.id].nearbyCount} incidents along corridor</span>
-                      </div>
-                      <div className="text-[7px] font-mono text-muted-foreground mt-1">
-                        Max-weighted blend across all waypoints
-                      </div>
-                    </div>
+                    <ExposureBreakdownPanel
+                      exposure={routeExposure[selectedRoute.id]}
+                      incidents={incidents.filter(i => i.lat != null && i.lng != null)}
+                      label="ROUTE EXPOSURE SCORE"
+                    />
                   )}
                   {(routeProximity[selectedRoute.id] || []).length > 0 && (
                     <div>

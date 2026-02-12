@@ -12,6 +12,7 @@ interface GeoIncident {
   lng: number;
   severity: number;
   datetime: string;
+  category?: string;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -24,11 +25,22 @@ function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number): nu
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+export interface ExposureBreakdown {
+  avgProximityKm: number;
+  avgSeverity: number;
+  avgRecency: number;
+  densityMultiplier: number;
+  topCategories: { category: string; count: number; pct: number }[];
+  highSeverityCount: number;
+  recentCount: number; // incidents in last 7 days
+}
+
 export interface ExposureResult {
   score: number; // 0–100
   level: "minimal" | "low" | "moderate" | "elevated" | "critical";
   nearbyCount: number;
   dominantCategory?: string;
+  breakdown?: ExposureBreakdown;
 }
 
 const LEVEL_THRESHOLDS: [number, ExposureResult["level"]][] = [
@@ -57,6 +69,11 @@ export function computeExposureScore(
   let rawScore = 0;
   let nearbyCount = 0;
   const categoryCounts: Record<string, number> = {};
+  let totalDist = 0;
+  let totalSeverity = 0;
+  let totalRecency = 0;
+  let highSeverityCount = 0;
+  let recentCount = 0;
 
   for (const inc of incidents) {
     const dist = haversineKm(lat, lng, inc.lat, inc.lng);
@@ -69,16 +86,47 @@ export function computeExposureScore(
     const severityWeight = inc.severity / 5;
 
     rawScore += severityWeight * recencyWeight * proximityWeight * 20;
+
+    totalDist += dist;
+    totalSeverity += inc.severity;
+    totalRecency += recencyWeight;
+    if (inc.severity >= 4) highSeverityCount++;
+    if (ageDays <= 7) recentCount++;
+    const cat = inc.category || "unknown";
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
   }
 
   // Density amplifier: more incidents in proximity amplify risk non-linearly
   const densityMultiplier = nearbyCount > 0 ? 1 + Math.log2(nearbyCount) * 0.3 : 1;
   const score = Math.min(100, Math.round(rawScore * densityMultiplier));
 
+  const topCategories = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([category, count]) => ({
+      category,
+      count,
+      pct: nearbyCount > 0 ? Math.round((count / nearbyCount) * 100) : 0,
+    }));
+
+  const breakdown: ExposureBreakdown | undefined = nearbyCount > 0
+    ? {
+        avgProximityKm: Math.round(totalDist / nearbyCount),
+        avgSeverity: Math.round((totalSeverity / nearbyCount) * 10) / 10,
+        avgRecency: Math.round((totalRecency / nearbyCount) * 100) / 100,
+        densityMultiplier: Math.round(densityMultiplier * 100) / 100,
+        topCategories,
+        highSeverityCount,
+        recentCount,
+      }
+    : undefined;
+
   return {
     score,
     level: getLevel(score),
     nearbyCount,
+    dominantCategory: topCategories[0]?.category,
+    breakdown,
   };
 }
 
