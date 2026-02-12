@@ -457,6 +457,33 @@ export type Database = {
         }
         Relationships: []
       }
+      telegram_channels: {
+        Row: {
+          created_at: string
+          created_by: string
+          enabled: boolean
+          id: string
+          label: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          enabled?: boolean
+          id?: string
+          label: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          enabled?: boolean
+          id?: string
+          label?: string
+          username?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
