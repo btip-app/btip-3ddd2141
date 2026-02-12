@@ -97,6 +97,44 @@ export function useRunEntityExtraction() {
   });
 }
 
+export function useAllAliases() {
+  return useQuery({
+    queryKey: ["all-entity-aliases"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("entity_aliases")
+        .select("entity_id, alias")
+        .limit(1000);
+      if (error) throw error;
+      const map: Record<string, string[]> = {};
+      for (const row of data || []) {
+        if (!map[row.entity_id]) map[row.entity_id] = [];
+        map[row.entity_id].push(row.alias);
+      }
+      return map;
+    },
+  });
+}
+
+export function useAllIncidentLinks() {
+  return useQuery({
+    queryKey: ["all-incident-entity-links"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("incident_entities")
+        .select("entity_id, incident_id")
+        .limit(1000);
+      if (error) throw error;
+      const map: Record<string, string[]> = {};
+      for (const row of data || []) {
+        if (!map[row.entity_id]) map[row.entity_id] = [];
+        map[row.entity_id].push(row.incident_id);
+      }
+      return map;
+    },
+  });
+}
+
 export function useMergeEntities() {
   const qc = useQueryClient();
   return useMutation({
@@ -112,6 +150,8 @@ export function useMergeEntities() {
       qc.invalidateQueries({ queryKey: ["entities"] });
       qc.invalidateQueries({ queryKey: ["entity-aliases"] });
       qc.invalidateQueries({ queryKey: ["entity-incidents"] });
+      qc.invalidateQueries({ queryKey: ["all-entity-aliases"] });
+      qc.invalidateQueries({ queryKey: ["all-incident-entity-links"] });
     },
   });
 }
