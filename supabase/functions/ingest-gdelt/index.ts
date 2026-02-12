@@ -23,22 +23,50 @@ const SECURITY_THEMES = [
 ];
 
 async function fetchGdeltEvents(): Promise<any[]> {
-  // Use GDELT DOC 2.0 API for recent events with Africa + security focus
-  const query = AFRICA_COUNTRIES.slice(0, 10).join(" OR ");
-  const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=50&timespan=24h&format=json&sort=DateDesc`;
+  // Try multiple focused queries to maximize results
+  const queries = [
+    "(attack OR conflict OR protest OR violence) (Africa OR Nigeria OR Kenya OR Ethiopia OR Somalia)",
+    "(terrorism OR bombing OR kidnapping OR coup) (Africa OR Congo OR Mali OR Sudan OR Libya)",
+    "(military OR rebellion OR riot) (Mozambique OR Cameroon OR Burkina Faso OR Niger OR Chad)",
+  ];
 
-  try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      console.warn(`GDELT API returned ${res.status}`);
-      return [];
+  const allArticles: any[] = [];
+
+  for (const query of queries) {
+    const url = `https://api.gdeltproject.org/api/v2/doc/doc?query=${encodeURIComponent(query)}&mode=ArtList&maxrecords=30&timespan=72h&format=json&sort=DateDesc`;
+    
+    try {
+      console.log(`GDELT query: ${query.slice(0, 60)}...`);
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        console.warn(`GDELT API returned ${res.status} for query`);
+        continue;
+      }
+
+      const text = await res.text();
+      // GDELT sometimes returns HTML error pages instead of JSON
+      if (text.startsWith("<") || text.startsWith("<!")) {
+        console.warn("GDELT returned HTML instead of JSON, skipping");
+        continue;
+      }
+
+      const data = JSON.parse(text);
+      const articles = data?.articles || [];
+      console.log(`GDELT returned ${articles.length} articles for query`);
+      allArticles.push(...articles);
+    } catch (e) {
+      console.warn("GDELT fetch error:", e);
     }
-    const data = await res.json();
-    return data?.articles || [];
-  } catch (e) {
-    console.warn("GDELT fetch error:", e);
-    return [];
   }
+
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  return allArticles.filter((a: any) => {
+    if (!a.url || seen.has(a.url)) return false;
+    seen.add(a.url);
+    return true;
+  });
 }
 
 Deno.serve(async (req) => {
@@ -75,7 +103,7 @@ Deno.serve(async (req) => {
 
     // Format for AI extraction
     const articlesText = articles
-      .slice(0, 40)
+      .slice(0, 20)
       .map((a: any, i: number) =>
         `[${i + 1}] ${a.title || "No title"}\nSource: ${a.domain || "unknown"}\nDate: ${a.seendate || "unknown"}\nURL: ${a.url || ""}`
       )
