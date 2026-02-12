@@ -14,6 +14,7 @@ import {
   Activity,
   Network,
   Brain,
+  Database,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -53,6 +54,7 @@ const mainNavItems: NavItem[] = [
 
 const adminNavItems: NavItem[] = [
   { title: 'Escalations', url: '/dashboard/escalations', icon: AlertTriangle, roles: ['admin', 'analyst'] },
+  { title: 'Raw Events', url: '/dashboard/raw-events', icon: Database, roles: ['admin'] },
   { title: 'Activity', url: '/dashboard/activity', icon: Activity, roles: ['admin'] },
   { title: 'Admin', url: '/dashboard/admin', icon: Settings, roles: ['admin'] },
   { title: 'Audit Log', url: '/dashboard/audit-log', icon: ClipboardList, roles: ['admin'] },
