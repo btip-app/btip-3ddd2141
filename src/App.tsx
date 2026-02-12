@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 
 // Auth
 import Auth from "./pages/Auth";
+import AdminSignup from "./pages/AdminSignup";
 
 // Dashboard
 import DashboardLayout from "./layouts/DashboardLayout";
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="/" element={<LandingV2 />} />
               <Route path="/v1" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/admin-signup" element={<AdminSignup />} />
               
               {/* Protected Dashboard Routes */}
               <Route path="/dashboard" element={<DashboardLayout />}>
