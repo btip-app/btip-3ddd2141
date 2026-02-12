@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.ingest-telegram]
 verify_jwt = false
+
+[functions.ingest-twitter]
+verify_jwt = false
