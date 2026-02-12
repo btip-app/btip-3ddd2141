@@ -1,9 +1,11 @@
 import { useState, useMemo } from "react";
-import { useEntities, useEntityAliases, useEntityIncidents, useRunEntityExtraction, useMergeEntities } from "@/hooks/useEntities";
+import { useEntities, useEntityAliases, useEntityIncidents, useRunEntityExtraction, useMergeEntities, useAllAliases, useAllIncidentLinks } from "@/hooks/useEntities";
+import { detectSimilarEntities, type SimilarityMatch } from "@/lib/entitySimilarity";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -11,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Users, Network, Play, ChevronRight, Shield, Building2, User, Swords, Landmark, MapPin, Merge, AlertTriangle } from "lucide-react";
+import { Loader2, Users, Network, Play, ChevronRight, Shield, Building2, User, Swords, Landmark, MapPin, Merge, AlertTriangle, Sparkles, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 const typeIcons: Record<string, any> = {
@@ -39,8 +41,15 @@ const roleColors: Record<string, string> = {
   affiliated: "bg-cyan-500/20 text-cyan-300",
 };
 
+function SimilarityBadge({ score }: { score: number }) {
+  const color = score >= 80 ? "text-emerald-400" : score >= 60 ? "text-amber-400" : "text-orange-400";
+  return <span className={`font-mono font-bold text-sm ${color}`}>{score}%</span>;
+}
+
 export default function EntityGraph() {
   const { data: entities, isLoading } = useEntities();
+  const { data: allAliases } = useAllAliases();
+  const { data: allIncidentLinks } = useAllIncidentLinks();
   const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
   const { data: aliases } = useEntityAliases(selectedEntityId);
   const { data: linkedIncidents } = useEntityIncidents(selectedEntityId);
@@ -52,6 +61,7 @@ export default function EntityGraph() {
   const [mergeSelected, setMergeSelected] = useState<string[]>([]);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [mergeTargetId, setMergeTargetId] = useState<string>("");
+  const [showSuggestions, setShowSuggestions] = useState(true);
 
   const selectedEntity = entities?.find(e => e.id === selectedEntityId);
 
@@ -59,6 +69,17 @@ export default function EntityGraph() {
     if (!entities) return [];
     return entities.filter(e => mergeSelected.includes(e.id));
   }, [entities, mergeSelected]);
+
+  // Similarity detection
+  const suggestions: SimilarityMatch[] = useMemo(() => {
+    if (!entities || entities.length < 2) return [];
+    return detectSimilarEntities(
+      entities,
+      allAliases || {},
+      allIncidentLinks || {},
+      40
+    );
+  }, [entities, allAliases, allIncidentLinks]);
 
   const handleRunExtraction = async () => {
     try {
@@ -80,9 +101,17 @@ export default function EntityGraph() {
       toast.error("Select at least 2 entities to merge");
       return;
     }
-    // Default target = entity with most incidents
     const sorted = mergeEntities.sort((a, b) => b.incident_count - a.incident_count);
     setMergeTargetId(sorted[0]?.id || "");
+    setMergeDialogOpen(true);
+  };
+
+  const handleQuickMerge = (match: SimilarityMatch) => {
+    // Pre-select the pair and open merge dialog
+    const target = match.entityA.incident_count >= match.entityB.incident_count ? match.entityA : match.entityB;
+    const source = target.id === match.entityA.id ? match.entityB : match.entityA;
+    setMergeSelected([target.id, source.id]);
+    setMergeTargetId(target.id);
     setMergeDialogOpen(true);
   };
 
@@ -164,6 +193,82 @@ export default function EntityGraph() {
         <Card><CardContent className="pt-4 text-center"><div className="text-2xl font-bold text-orange-400">{stats.armedGroups}</div><div className="text-xs text-muted-foreground">Armed Groups</div></CardContent></Card>
         <Card><CardContent className="pt-4 text-center"><div className="text-2xl font-bold text-blue-400">{stats.organizations}</div><div className="text-xs text-muted-foreground">Organizations</div></CardContent></Card>
       </div>
+
+      {/* Suggested Merges Panel */}
+      {suggestions.length > 0 && showSuggestions && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-sm font-mono flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary" />
+                Suggested Merges ({suggestions.length})
+              </CardTitle>
+              <Button variant="ghost" size="sm" className="text-[10px] h-6" onClick={() => setShowSuggestions(false)}>
+                Dismiss
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground font-mono">
+              Potential duplicates detected via fuzzy name matching, alias overlap, and shared incident patterns
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2 max-h-[300px] overflow-y-auto">
+            {suggestions.slice(0, 10).map((match, idx) => {
+              const IconA = typeIcons[match.entityA.entity_type] || Users;
+              const IconB = typeIcons[match.entityB.entity_type] || Users;
+              return (
+                <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-colors">
+                  {/* Entity A */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <IconA className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium truncate">{match.entityA.canonical_name}</span>
+                    <Badge variant="outline" className={`text-[8px] shrink-0 ${typeColors[match.entityA.entity_type] || ''}`}>
+                      {match.entityA.entity_type.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+
+                  {/* Arrow + Score */}
+                  <div className="flex flex-col items-center shrink-0 gap-0.5">
+                    <SimilarityBadge score={match.overall} />
+                    <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                  </div>
+
+                  {/* Entity B */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                    <IconB className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-sm font-medium truncate">{match.entityB.canonical_name}</span>
+                    <Badge variant="outline" className={`text-[8px] shrink-0 ${typeColors[match.entityB.entity_type] || ''}`}>
+                      {match.entityB.entity_type.replace(/_/g, ' ')}
+                    </Badge>
+                  </div>
+
+                  {/* Breakdown + Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div className="hidden md:flex gap-3 text-[9px] font-mono text-muted-foreground">
+                      <span>Name: {match.nameSimilarity}%</span>
+                      <span>Alias: {match.aliasOverlap}%</span>
+                      <span>Incidents: {match.incidentOverlap}%</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[10px] font-mono"
+                      onClick={() => handleQuickMerge(match)}
+                    >
+                      <Merge className="h-3 w-3 mr-1" />
+                      Merge
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {suggestions.length > 10 && (
+              <p className="text-[10px] font-mono text-muted-foreground text-center pt-1">
+                + {suggestions.length - 10} more suggestions below threshold
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Merge mode hint */}
       {mergeMode && (
