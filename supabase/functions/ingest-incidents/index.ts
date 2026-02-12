@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
       ? dbSources
       : DEFAULT_SOURCES;
 
-    console.log(`Ingestion started (cron: ${isCron}), scraping ${sourcesToScrape.length} sources`);
+    console.log(`Ingestion started, scraping ${sourcesToScrape.length} sources`);
 
     // Step 1: Scrape each source via Firecrawl
     const scrapedContent: string[] = [];

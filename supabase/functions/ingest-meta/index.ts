@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
 
     const targets = body.targets?.length ? body.targets : DEFAULT_TARGETS;
 
-    console.log(`Meta SOCMINT: scraping ${targets.length} targets (cron: ${isCron})`);
+    console.log(`Meta SOCMINT: scraping ${targets.length} targets`);
 
     // Step 1: Scrape all targets with Firecrawl
     const scrapedContent: { label: string; url: string; content: string }[] = [];
