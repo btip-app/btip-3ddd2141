@@ -104,7 +104,7 @@ const SUGGESTED_QUERIES = [
   "Are there kidnapping threats near Bonny Island?",
 ];
 
-const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Assessments are based on live incident data and should be validated against ground-truth sources before operational use.";
+const DISCLAIMER = "Advisory: This is decision-support intelligence based on available data. Validate assessments against ground-truth sources before operational use. Not a guarantee of safety.";
 
 // --- Component ---
 
@@ -432,7 +432,7 @@ export default function Copilot() {
                         <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-accent/5 border border-accent/10">
                           <Info className="h-2.5 w-2.5 text-accent/60 mt-0.5 flex-shrink-0" />
                           <span className="text-[7px] font-mono text-accent/60 leading-relaxed">
-                            Intelligence assessment — not a guarantee of safety. Validate before operational use.
+                            Advisory: Decision-support intelligence — not a guarantee of safety. Validate before operational use.
                           </span>
                         </div>
                       )}
