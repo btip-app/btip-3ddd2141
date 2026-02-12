@@ -43,6 +43,7 @@ const THREAT_TYPES = [
   { value: "robbery", label: "Armed Robbery" },
   { value: "protest", label: "Civil Unrest" },
   { value: "piracy", label: "Maritime / Piracy" },
+  { value: "cyber", label: "Cyber Threats" },
 ];
 
 const TIME_WINDOWS = [
