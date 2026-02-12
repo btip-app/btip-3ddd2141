@@ -752,6 +752,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      merge_entities: {
+        Args: { _source_id: string; _target_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "analyst" | "operator" | "viewer" | "executive"

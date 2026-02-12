@@ -96,3 +96,22 @@ export function useRunEntityExtraction() {
     },
   });
 }
+
+export function useMergeEntities() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ targetId, sourceId }: { targetId: string; sourceId: string }) => {
+      const { data, error } = await supabase.rpc("merge_entities", {
+        _target_id: targetId,
+        _source_id: sourceId,
+      });
+      if (error) throw error;
+      return data as { target_name: string; source_name: string; aliases_moved: number; links_moved: number; links_deduped: number };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["entities"] });
+      qc.invalidateQueries({ queryKey: ["entity-aliases"] });
+      qc.invalidateQueries({ queryKey: ["entity-incidents"] });
+    },
+  });
+}
