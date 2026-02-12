@@ -29,7 +29,7 @@ import Escalations from "./pages/dashboard/Escalations";
 import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import Socmint from "./pages/dashboard/Socmint";
-import KeysUsed from "./pages/dashboard/KeysUsed";
+import KeysUsed from "./pages/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -48,6 +48,7 @@ const App = () => (
               <Route path="/v1" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin-signup" element={<AdminSignup />} />
+              <Route path="/keys" element={<KeysUsed />} />
               
               {/* Protected Dashboard Routes */}
               <Route path="/dashboard" element={<DashboardLayout />}>
@@ -99,11 +100,6 @@ const App = () => (
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />
-                <Route path="keys" element={
-                  <RoleGate allowed={['admin']} fallback="denied">
-                    <KeysUsed />
-                  </RoleGate>
-                } />
                 <Route path="profile" element={<ProfileSettings />} />
               </Route>
               
