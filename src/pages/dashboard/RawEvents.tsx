@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useRawEvents, type RawEvent } from '@/hooks/useRawEvents';
+import { scoreRawEvent, qualityGrade, type QualityBreakdown } from '@/lib/dataQuality';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -16,7 +18,7 @@ import {
 } from 'recharts';
 import {
   Database, Loader2, Activity, CheckCircle2, XCircle, Copy, AlertTriangle,
-  Clock, Hash, ExternalLink, RefreshCw,
+  Clock, Hash, ExternalLink, RefreshCw, ShieldCheck, Flag,
 } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bgClass: string }> = {
@@ -45,12 +47,51 @@ function MetricCard({ label, value, sub, icon: Icon, color }: {
   );
 }
 
+function QualityBar({ label, value }: { label: string; value: number }) {
+  const grade = qualityGrade(value);
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-mono text-muted-foreground">{label}</span>
+        <span className={`text-[10px] font-mono font-bold ${grade.color}`}>{value}/100</span>
+      </div>
+      <Progress value={value} className="h-1.5" />
+    </div>
+  );
+}
+
+type ScoredEvent = RawEvent & { quality: QualityBreakdown };
+
 export default function RawEvents() {
   const { events, loading, stats, refetch } = useRawEvents();
   const [sourceFilter, setSourceFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedEvent, setSelectedEvent] = useState<RawEvent | null>(null);
+  const [qualityFilter, setQualityFilter] = useState('all');
+  const [selectedEvent, setSelectedEvent] = useState<ScoredEvent | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Score all events
+  const scoredEvents: ScoredEvent[] = useMemo(() =>
+    events.map(e => ({
+      ...e,
+      quality: scoreRawEvent(e.source_type, e.raw_payload, {
+        source_url: e.source_url,
+        content_hash: e.content_hash,
+      }),
+    })),
+    [events]
+  );
+
+  // Aggregate quality stats
+  const qualityStats = useMemo(() => {
+    if (scoredEvents.length === 0) return { avg: 0, high: 0, low: 0, flagged: 0 };
+    const scores = scoredEvents.map(e => e.quality.overall);
+    const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+    const high = scores.filter(s => s >= 65).length;
+    const low = scores.filter(s => s < 50).length;
+    const flagged = scoredEvents.filter(e => e.quality.flags.length >= 3).length;
+    return { avg, high, low, flagged };
+  }, [scoredEvents]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -69,9 +110,12 @@ export default function RawEvents() {
   const sources = Object.keys(stats.bySource);
   const statuses = Object.keys(stats.byStatus);
 
-  const filtered = events.filter(e => {
+  const filtered = scoredEvents.filter(e => {
     if (sourceFilter !== 'all' && e.source_type !== sourceFilter) return false;
     if (statusFilter !== 'all' && e.status !== statusFilter) return false;
+    if (qualityFilter === 'high' && e.quality.overall < 65) return false;
+    if (qualityFilter === 'medium' && (e.quality.overall < 50 || e.quality.overall >= 65)) return false;
+    if (qualityFilter === 'low' && e.quality.overall >= 50) return false;
     return true;
   });
 
@@ -111,8 +155,8 @@ export default function RawEvents() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* KPI Cards — now 5 cols */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <MetricCard
           label="Total Events"
           value={stats.total.toLocaleString()}
@@ -140,6 +184,13 @@ export default function RawEvents() {
           sub={`${stats.byStatus['rejected'] || 0} rejected events`}
           icon={AlertTriangle}
           color={stats.errorRate > 10 ? 'text-destructive' : 'text-amber-400'}
+        />
+        <MetricCard
+          label="Avg Quality"
+          value={`${qualityStats.avg}`}
+          sub={`${qualityStats.high} high / ${qualityStats.low} low`}
+          icon={ShieldCheck}
+          color={qualityGrade(qualityStats.avg).color}
         />
       </div>
 
@@ -228,6 +279,20 @@ export default function RawEvents() {
               </SelectContent>
             </Select>
           </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">QUALITY:</span>
+            <Select value={qualityFilter} onValueChange={setQualityFilter}>
+              <SelectTrigger className="w-[130px] h-7 text-[10px] font-mono bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border">
+                <SelectItem value="all" className="text-[10px] font-mono">All Grades</SelectItem>
+                <SelectItem value="high" className="text-[10px] font-mono">High (≥65)</SelectItem>
+                <SelectItem value="medium" className="text-[10px] font-mono">Medium (50–64)</SelectItem>
+                <SelectItem value="low" className="text-[10px] font-mono">Low (&lt;50)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <Badge variant="outline" className="text-[10px] font-mono ml-auto">{filtered.length} shown</Badge>
         </div>
       </Card>
@@ -248,6 +313,7 @@ export default function RawEvents() {
                 <thead className="sticky top-0 bg-card z-10">
                   <tr className="border-b border-border text-muted-foreground">
                     <th className="text-left py-2 px-2">STATUS</th>
+                    <th className="text-left py-2 px-2">QUALITY</th>
                     <th className="text-left py-2 px-2">SOURCE</th>
                     <th className="text-left py-2 px-2">LABEL</th>
                     <th className="text-left py-2 px-2">HASH</th>
@@ -260,10 +326,15 @@ export default function RawEvents() {
                 <tbody>
                   {filtered.slice(0, 100).map(e => {
                     const cfg = STATUS_CONFIG[e.status] || { label: e.status, bgClass: 'bg-muted text-muted-foreground' };
+                    const grade = qualityGrade(e.quality.overall);
                     return (
                       <tr key={e.id} className="border-b border-border/50 hover:bg-secondary/30">
                         <td className="py-1.5 px-2">
                           <Badge className={`${cfg.bgClass} text-[9px]`}>{cfg.label}</Badge>
+                        </td>
+                        <td className="py-1.5 px-2">
+                          <span className={`font-bold ${grade.color}`}>{grade.label}</span>
+                          <span className="text-muted-foreground ml-1">{e.quality.overall}</span>
                         </td>
                         <td className="py-1.5 px-2">{e.source_type}</td>
                         <td className="py-1.5 px-2 max-w-[120px] truncate">{e.source_label || '—'}</td>
@@ -298,17 +369,49 @@ export default function RawEvents() {
         </CardContent>
       </Card>
 
-      {/* Detail Dialog */}
+      {/* Detail Dialog with Quality Breakdown */}
       <Dialog open={!!selectedEvent} onOpenChange={() => setSelectedEvent(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-card border-border">
           <DialogHeader>
             <DialogTitle className="text-sm font-mono">Raw Event Detail</DialogTitle>
             <DialogDescription className="text-[10px] font-mono text-muted-foreground">
-              Source provenance and raw payload inspection
+              Source provenance, quality assessment, and raw payload inspection
             </DialogDescription>
           </DialogHeader>
           {selectedEvent && (
             <div className="space-y-3">
+              {/* Quality Breakdown Panel */}
+              <Card className="bg-secondary/30 border-border">
+                <CardHeader className="pb-1 pt-3 px-4">
+                  <CardTitle className="text-[11px] font-mono flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                    Data Quality Assessment
+                    <span className={`ml-auto text-lg font-bold ${qualityGrade(selectedEvent.quality.overall).color}`}>
+                      {qualityGrade(selectedEvent.quality.overall).label}
+                    </span>
+                    <span className="text-muted-foreground text-xs font-normal">{selectedEvent.quality.overall}/100</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-3 space-y-2">
+                  <QualityBar label="Completeness" value={selectedEvent.quality.completeness} />
+                  <QualityBar label="Geo-Precision" value={selectedEvent.quality.geoPrecision} />
+                  <QualityBar label="Source Reliability" value={selectedEvent.quality.sourceReliability} />
+
+                  {selectedEvent.quality.flags.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-border">
+                      <p className="text-[10px] font-mono text-muted-foreground mb-1 flex items-center gap-1">
+                        <Flag className="h-3 w-3" /> Quality Flags
+                      </p>
+                      <ul className="space-y-0.5">
+                        {selectedEvent.quality.flags.map((f, i) => (
+                          <li key={i} className="text-[10px] font-mono text-amber-400">• {f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <div className="grid grid-cols-2 gap-3 text-[10px] font-mono">
                 <div>
                   <span className="text-muted-foreground">ID:</span>
