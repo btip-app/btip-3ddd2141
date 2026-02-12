@@ -400,6 +400,59 @@ export type Database = {
           },
         ]
       }
+      raw_events: {
+        Row: {
+          content_hash: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          incident_id: string | null
+          ingested_at: string
+          normalized_at: string | null
+          raw_payload: Json
+          source_label: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+        }
+        Insert: {
+          content_hash?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          incident_id?: string | null
+          ingested_at?: string
+          normalized_at?: string | null
+          raw_payload?: Json
+          source_label?: string | null
+          source_type: string
+          source_url?: string | null
+          status?: string
+        }
+        Update: {
+          content_hash?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          incident_id?: string | null
+          ingested_at?: string
+          normalized_at?: string | null
+          raw_payload?: Json
+          source_label?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_events_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routes: {
         Row: {
           checkpoints: Json | null
