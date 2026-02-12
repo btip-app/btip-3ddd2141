@@ -17,3 +17,12 @@ verify_jwt = false
 
 [functions.ingest-acled]
 verify_jwt = false
+
+[functions.check-ip-reputation]
+verify_jwt = false
+
+[functions.geocode-incidents]
+verify_jwt = false
+
+[functions.weather-risk]
+verify_jwt = false
