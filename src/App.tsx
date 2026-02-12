@@ -30,6 +30,7 @@ import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import Socmint from "./pages/dashboard/Socmint";
 import EntityGraph from "./pages/dashboard/EntityGraph";
+import ClassificationAccuracy from "./pages/dashboard/ClassificationAccuracy";
 import KeysUsed from "./pages/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
@@ -103,6 +104,11 @@ const App = () => (
                 <Route path="entities" element={
                   <RoleGate allowed={['admin', 'analyst']} fallback="denied">
                     <EntityGraph />
+                  </RoleGate>
+                } />
+                <Route path="accuracy" element={
+                  <RoleGate allowed={['admin', 'analyst']} fallback="denied">
+                    <ClassificationAccuracy />
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />

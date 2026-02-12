@@ -131,6 +131,59 @@ export type Database = {
         }
         Relationships: []
       }
+      classification_feedback: {
+        Row: {
+          analyst_id: string
+          corrected_category: string | null
+          corrected_confidence: number | null
+          corrected_severity: number | null
+          created_at: string
+          feedback_type: string
+          id: string
+          incident_id: string
+          notes: string | null
+          original_category: string
+          original_confidence: number
+          original_severity: number
+        }
+        Insert: {
+          analyst_id: string
+          corrected_category?: string | null
+          corrected_confidence?: number | null
+          corrected_severity?: number | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          incident_id: string
+          notes?: string | null
+          original_category: string
+          original_confidence: number
+          original_severity: number
+        }
+        Update: {
+          analyst_id?: string
+          corrected_category?: string | null
+          corrected_confidence?: number | null
+          corrected_severity?: number | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          incident_id?: string
+          notes?: string | null
+          original_category?: string
+          original_confidence?: number
+          original_severity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_feedback_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       entities: {
         Row: {
           canonical_name: string
