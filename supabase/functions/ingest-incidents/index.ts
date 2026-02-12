@@ -20,30 +20,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
-
-    // Verify user has analyst/admin role
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await anonClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (!FIRECRAWL_API_KEY) {
@@ -75,7 +54,7 @@ Deno.serve(async (req) => {
       ? dbSources
       : DEFAULT_SOURCES;
 
-    console.log(`Ingestion started by user ${user.id}, scraping ${sourcesToScrape.length} sources`);
+    console.log(`Ingestion started (cron: ${isCron}), scraping ${sourcesToScrape.length} sources`);
 
     // Step 1: Scrape each source via Firecrawl
     const scrapedContent: string[] = [];
