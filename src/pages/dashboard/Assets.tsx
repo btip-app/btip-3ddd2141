@@ -44,8 +44,10 @@ import {
   Trash2,
   AlertTriangle,
   Loader2,
+  Gauge,
 } from "lucide-react";
 import { toast } from "sonner";
+import { computeExposureScore, computeRouteExposureScore, EXPOSURE_BG_CLASSES, type ExposureResult } from "@/lib/exposureScore";
 import {
   REGIONS as GEO_REGIONS,
   getCountriesForRegion,
@@ -227,10 +229,15 @@ export default function Assets() {
 
   const routeGeoJSONs = useMemo(() => routes.map(r => ({ id: r.id, geojson: getRouteGeoJSON(r) })), [routes]);
 
-  const proximityIncidents: ProximityIncident[] = useMemo(() =>
+  const geoIncidents = useMemo(() =>
     incidents.filter(i => i.lat != null && i.lng != null)
-      .map(i => ({ id: i.id, lat: i.lat!, lng: i.lng!, title: i.title, category: i.category, severity: i.severity })),
+      .map(i => ({ lat: i.lat!, lng: i.lng!, severity: i.severity, datetime: i.datetime, id: i.id, title: i.title, category: i.category })),
     [incidents]
+  );
+
+  const proximityIncidents: ProximityIncident[] = useMemo(() =>
+    geoIncidents.map(i => ({ id: i.id, lat: i.lat, lng: i.lng, title: i.title, category: i.category, severity: i.severity })),
+    [geoIncidents]
   );
 
   const assetProximity = useMemo(() => {
@@ -238,6 +245,25 @@ export default function Assets() {
     for (const asset of assets) map[asset.id] = proximityIncidents.filter(inc => haversineKm(asset.lat, asset.lng, inc.lat, inc.lng) <= PROXIMITY_RADIUS_KM);
     return map;
   }, [assets, proximityIncidents]);
+
+  const assetExposure = useMemo(() => {
+    const map: Record<string, ExposureResult> = {};
+    for (const asset of assets) map[asset.id] = computeExposureScore(asset.lat, asset.lng, geoIncidents);
+    return map;
+  }, [assets, geoIncidents]);
+
+  const routeExposure = useMemo(() => {
+    const map: Record<string, ExposureResult> = {};
+    for (const route of routes) {
+      const points = [
+        { lat: route.start_lat, lng: route.start_lng },
+        ...route.checkpoints,
+        { lat: route.end_lat, lng: route.end_lng },
+      ];
+      map[route.id] = computeRouteExposureScore(points, geoIncidents);
+    }
+    return map;
+  }, [routes, geoIncidents]);
 
   const routeProximity = useMemo(() => {
     const map: Record<string, ProximityIncident[]> = {};
@@ -366,6 +392,7 @@ export default function Assets() {
                     <TableRow className="border-border">
                       <TableHead className="text-[9px] font-mono text-muted-foreground">NAME</TableHead>
                       <TableHead className="text-[9px] font-mono text-muted-foreground">TYPE</TableHead>
+                      <TableHead className="text-[9px] font-mono text-muted-foreground">EXPOSURE</TableHead>
                       <TableHead className="text-[9px] font-mono text-muted-foreground">THREATS</TableHead>
                       <TableHead className="text-[9px] font-mono text-muted-foreground w-16"></TableHead>
                     </TableRow>
@@ -373,6 +400,7 @@ export default function Assets() {
                   <TableBody>
                     {assets.map(asset => {
                       const nearby = assetProximity[asset.id] || [];
+                      const exposure = assetExposure[asset.id];
                       const TypeIcon = ASSET_TYPE_META[asset.type as AssetType]?.icon || Building2;
                       return (
                         <TableRow key={asset.id} className={`border-border cursor-pointer ${selectedAssetId === asset.id ? 'bg-primary/10' : 'hover:bg-secondary/50'}`} onClick={() => handleSelectAsset(asset.id)}>
@@ -386,6 +414,16 @@ export default function Assets() {
                             </div>
                           </TableCell>
                           <TableCell className="text-[9px] font-mono text-muted-foreground py-2 capitalize">{asset.type}</TableCell>
+                          <TableCell className="py-2">
+                            {exposure && (
+                              <div className="flex items-center gap-1.5">
+                                <Badge className={`${EXPOSURE_BG_CLASSES[exposure.level]} text-[7px] font-mono px-1.5 py-0`}>
+                                  {exposure.score}
+                                </Badge>
+                                <span className="text-[7px] font-mono text-muted-foreground uppercase">{exposure.level}</span>
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="py-2">
                             {nearby.length > 0 ? (
                               <Badge variant="destructive" className="text-[8px] font-mono px-1.5 py-0">{nearby.length}</Badge>
@@ -403,7 +441,7 @@ export default function Assets() {
                       );
                     })}
                     {assets.length === 0 && !loading && (
-                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-[10px] font-mono text-muted-foreground">No assets registered. Click ADD ASSET to create one.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={5} className="text-center py-8 text-[10px] font-mono text-muted-foreground">No assets registered. Click ADD ASSET to create one.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -418,6 +456,7 @@ export default function Assets() {
                   <TableHeader>
                     <TableRow className="border-border">
                       <TableHead className="text-[9px] font-mono text-muted-foreground">ROUTE</TableHead>
+                      <TableHead className="text-[9px] font-mono text-muted-foreground">EXPOSURE</TableHead>
                       <TableHead className="text-[9px] font-mono text-muted-foreground">THREATS</TableHead>
                       <TableHead className="text-[9px] font-mono text-muted-foreground w-16"></TableHead>
                     </TableRow>
@@ -425,6 +464,7 @@ export default function Assets() {
                   <TableBody>
                     {routes.map(route => {
                       const nearby = routeProximity[route.id] || [];
+                      const exposure = routeExposure[route.id];
                       return (
                         <TableRow key={route.id} className={`border-border cursor-pointer ${selectedRouteId === route.id ? 'bg-primary/10' : 'hover:bg-secondary/50'}`} onClick={() => handleSelectRoute(route.id)}>
                           <TableCell className="py-2">
@@ -435,6 +475,16 @@ export default function Assets() {
                                 <div className="text-[8px] font-mono text-muted-foreground">{route.start_label} → {route.end_label}</div>
                               </div>
                             </div>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            {exposure && (
+                              <div className="flex items-center gap-1.5">
+                                <Badge className={`${EXPOSURE_BG_CLASSES[exposure.level]} text-[7px] font-mono px-1.5 py-0`}>
+                                  {exposure.score}
+                                </Badge>
+                                <span className="text-[7px] font-mono text-muted-foreground uppercase">{exposure.level}</span>
+                              </div>
+                            )}
                           </TableCell>
                           <TableCell className="py-2">
                             {nearby.length > 0 ? (
@@ -453,7 +503,7 @@ export default function Assets() {
                       );
                     })}
                     {routes.length === 0 && !loading && (
-                      <TableRow><TableCell colSpan={3} className="text-center py-8 text-[10px] font-mono text-muted-foreground">No routes registered. Click ADD ROUTE to create one.</TableCell></TableRow>
+                      <TableRow><TableCell colSpan={4} className="text-center py-8 text-[10px] font-mono text-muted-foreground">No routes registered. Click ADD ROUTE to create one.</TableCell></TableRow>
                     )}
                   </TableBody>
                 </Table>
@@ -514,8 +564,27 @@ export default function Assets() {
                     <span><MapPin className="h-3 w-3 inline mr-0.5" />{selectedAsset.lat.toFixed(4)}, {selectedAsset.lng.toFixed(4)}</span>
                     <span>{geoLabel(selectedAsset)}</span>
                   </div>
-                  {selectedAsset.tags.length > 0 && (
+                   {selectedAsset.tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">{selectedAsset.tags.map(t => <Badge key={t} variant="outline" className="text-[8px] font-mono">{t}</Badge>)}</div>
+                  )}
+                  {/* Exposure Score */}
+                  {assetExposure[selectedAsset.id] && (
+                    <div className="bg-secondary/30 rounded p-2 mt-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Gauge className="h-3 w-3 text-primary" />
+                        <span className="text-[9px] font-mono font-bold text-foreground">EXPOSURE SCORE</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl font-mono font-bold text-foreground">{assetExposure[selectedAsset.id].score}</span>
+                        <Badge className={`${EXPOSURE_BG_CLASSES[assetExposure[selectedAsset.id].level]} text-[8px] font-mono px-1.5 py-0`}>
+                          {assetExposure[selectedAsset.id].level.toUpperCase()}
+                        </Badge>
+                        <span className="text-[8px] font-mono text-muted-foreground ml-auto">{assetExposure[selectedAsset.id].nearbyCount} incidents within 50km</span>
+                      </div>
+                      <div className="text-[7px] font-mono text-muted-foreground mt-1">
+                        Weighted by proximity, severity, recency & density
+                      </div>
+                    </div>
                   )}
                   {(assetProximity[selectedAsset.id] || []).length > 0 && (
                     <div>
@@ -543,6 +612,25 @@ export default function Assets() {
                   </div>
                   {selectedRoute.tags.length > 0 && (
                     <div className="flex gap-1 flex-wrap">{selectedRoute.tags.map(t => <Badge key={t} variant="outline" className="text-[8px] font-mono">{t}</Badge>)}</div>
+                  )}
+                  {/* Route Exposure Score */}
+                  {routeExposure[selectedRoute.id] && (
+                    <div className="bg-secondary/30 rounded p-2 mt-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Gauge className="h-3 w-3 text-primary" />
+                        <span className="text-[9px] font-mono font-bold text-foreground">ROUTE EXPOSURE SCORE</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl font-mono font-bold text-foreground">{routeExposure[selectedRoute.id].score}</span>
+                        <Badge className={`${EXPOSURE_BG_CLASSES[routeExposure[selectedRoute.id].level]} text-[8px] font-mono px-1.5 py-0`}>
+                          {routeExposure[selectedRoute.id].level.toUpperCase()}
+                        </Badge>
+                        <span className="text-[8px] font-mono text-muted-foreground ml-auto">{routeExposure[selectedRoute.id].nearbyCount} incidents along corridor</span>
+                      </div>
+                      <div className="text-[7px] font-mono text-muted-foreground mt-1">
+                        Max-weighted blend across all waypoints
+                      </div>
+                    </div>
                   )}
                   {(routeProximity[selectedRoute.id] || []).length > 0 && (
                     <div>
