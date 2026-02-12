@@ -48,6 +48,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Alerts', url: '/dashboard/alerts', icon: Bell, roles: ['admin', 'analyst', 'operator'] },
   { title: 'SOCMINT', url: '/dashboard/socmint', icon: BarChart3, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Copilot', url: '/dashboard/copilot', icon: Bot, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Forecast', url: '/dashboard/forecast', icon: Activity, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Entities', url: '/dashboard/entities', icon: Network, roles: ['admin', 'analyst'] },
   { title: 'AI Accuracy', url: '/dashboard/accuracy', icon: Brain, roles: ['admin', 'analyst'] },
 ];
