@@ -84,7 +84,7 @@ export default function LandingNav() {
             className="flex items-center gap-2 group"
           >
             <Shield className="h-4 w-4 text-primary" />
-            <span className="font-mono font-bold text-sm tracking-tight text-foreground">
+            <span className="font-mono font-bold text-sm acronym text-foreground">
               BTIP
             </span>
           </a>

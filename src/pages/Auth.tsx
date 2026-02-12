@@ -105,7 +105,7 @@ export default function Auth() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Shield className="h-8 w-8 text-primary" />
-            <span className="text-2xl font-mono font-bold tracking-tight">BTIP</span>
+            <span className="text-2xl font-mono font-bold acronym">BTIP</span>
           </div>
           <h1 className="text-lg font-mono font-semibold text-foreground">
             {mode === "login" ? "Authenticate" : "Request Access"}

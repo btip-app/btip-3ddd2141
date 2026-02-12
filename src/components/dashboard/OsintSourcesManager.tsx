@@ -95,7 +95,7 @@ export function OsintSourcesManager() {
       <div className="flex items-center justify-between">
         <h3 className="text-xs font-mono font-bold text-foreground flex items-center gap-2">
           <Globe className="h-3.5 w-3.5 text-primary" />
-          OSINT SOURCES
+          <span className="acronym">OSINT</span> SOURCES
         </h3>
         <Badge variant="outline" className="text-[9px] font-mono">
           {sources.filter(s => s.enabled).length} active
