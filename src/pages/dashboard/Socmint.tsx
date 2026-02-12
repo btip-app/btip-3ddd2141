@@ -157,7 +157,7 @@ export default function Socmint() {
         <div>
           <h1 className="text-xl font-mono font-bold text-foreground flex items-center gap-2">
             <BarChart3 className="h-5 w-5 text-primary" />
-            SOCMINT Dashboard
+            <span className="tracking-tight">SOCMINT</span> Dashboard
           </h1>
           <p className="text-muted-foreground text-[10px] font-mono">
             {socmintIncidents.length} incidents from social media intelligence sources
