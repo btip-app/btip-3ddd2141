@@ -47,23 +47,76 @@ serve(async (req) => {
 
     console.log(`Copilot query from user ${user.id}: ${query}`);
 
-    // Fetch recent incidents for context
+    // Fetch recent incidents for context (expanded window for trend analysis)
     const { data: incidents, error: incError } = await supabase
       .from("incidents")
       .select("id, title, location, severity, confidence, category, status, datetime, region, country, subdivision, summary, sources")
       .order("datetime", { ascending: false })
-      .limit(50);
+      .limit(200);
 
     if (incError) {
       console.error("Failed to fetch incidents:", incError);
     }
 
-    const incidentContext = (incidents || [])
+    const allIncidents = incidents || [];
+
+    const incidentContext = allIncidents
+      .slice(0, 50)
       .map(
         (i: any) =>
           `- [ID:${i.id.slice(0, 8)}] "${i.title}" | ${i.location} | Severity:${i.severity}/5 | Confidence:${i.confidence}% | Category:${i.category} | Status:${i.status} | ${i.datetime} | Summary: ${i.summary || "N/A"}`
       )
       .join("\n");
+
+    // Compute trend statistics for predictive context
+    const now = Date.now();
+    const _7d = 7 * 86400000;
+    const _14d = 14 * 86400000;
+    const _30d = 30 * 86400000;
+
+    const last7d = allIncidents.filter((i: any) => now - new Date(i.datetime).getTime() < _7d);
+    const prev7d = allIncidents.filter((i: any) => {
+      const age = now - new Date(i.datetime).getTime();
+      return age >= _7d && age < _14d;
+    });
+    const last30d = allIncidents.filter((i: any) => now - new Date(i.datetime).getTime() < _30d);
+
+    // Category breakdown
+    const catCounts: Record<string, { last7: number; prev7: number; last30: number }> = {};
+    for (const i of allIncidents as any[]) {
+      const cat = i.category;
+      if (!catCounts[cat]) catCounts[cat] = { last7: 0, prev7: 0, last30: 0 };
+      const age = now - new Date(i.datetime).getTime();
+      if (age < _7d) catCounts[cat].last7++;
+      if (age >= _7d && age < _14d) catCounts[cat].prev7++;
+      if (age < _30d) catCounts[cat].last30++;
+    }
+
+    // Region breakdown
+    const regionCounts: Record<string, { last7: number; prev7: number }> = {};
+    for (const i of allIncidents as any[]) {
+      const region = i.country || i.region || "unknown";
+      if (!regionCounts[region]) regionCounts[region] = { last7: 0, prev7: 0 };
+      const age = now - new Date(i.datetime).getTime();
+      if (age < _7d) regionCounts[region].last7++;
+      if (age >= _7d && age < _14d) regionCounts[region].prev7++;
+    }
+
+    const trendContext = `
+TREND ANALYSIS DATA (for predictive assessments):
+- Total incidents: ${allIncidents.length} (last 30d: ${last30d.length})
+- Last 7 days: ${last7d.length} incidents | Previous 7 days: ${prev7d.length} incidents
+- Week-over-week change: ${last7d.length - prev7d.length > 0 ? "+" : ""}${last7d.length - prev7d.length} (${prev7d.length > 0 ? ((last7d.length / prev7d.length - 1) * 100).toFixed(0) : "N/A"}%)
+
+CATEGORY TRENDS:
+${Object.entries(catCounts).map(([cat, c]) => `  ${cat}: 7d=${c.last7}, prev7d=${c.prev7}, 30d=${c.last30} | trend=${c.prev7 > 0 ? (c.last7 > c.prev7 * 1.2 ? "RISING" : c.last7 < c.prev7 * 0.8 ? "DECLINING" : "STABLE") : c.last7 > 0 ? "NEW" : "INACTIVE"}`).join("\n")}
+
+REGIONAL TRENDS:
+${Object.entries(regionCounts).map(([region, c]) => `  ${region}: 7d=${c.last7}, prev7d=${c.prev7} | trend=${c.prev7 > 0 ? (c.last7 > c.prev7 * 1.2 ? "RISING" : c.last7 < c.prev7 * 0.8 ? "DECLINING" : "STABLE") : c.last7 > 0 ? "NEW" : "INACTIVE"}`).join("\n")}
+
+AVG SEVERITY (last 7d): ${last7d.length > 0 ? (last7d.reduce((s: number, i: any) => s + i.severity, 0) / last7d.length).toFixed(1) : "N/A"}
+AVG SEVERITY (prev 7d): ${prev7d.length > 0 ? (prev7d.reduce((s: number, i: any) => s + i.severity, 0) / prev7d.length).toFixed(1) : "N/A"}
+`;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
@@ -73,10 +126,12 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `You are BTIP Copilot, a security intelligence decision-support analyst. You provide structured threat assessments based on real incident data.
+    const systemPrompt = `You are BTIP Copilot, a security intelligence decision-support analyst with predictive capabilities. You provide structured threat assessments and risk forecasts based on real incident data and trend analysis.
 
-CURRENT INCIDENT DATABASE (${(incidents || []).length} most recent incidents):
+CURRENT INCIDENT DATABASE (${allIncidents.length} total, showing 50 most recent):
 ${incidentContext}
+
+${trendContext}
 
 RESPONSE FORMAT:
 You MUST respond with a valid JSON object (no markdown, no code fences) using this exact schema:
@@ -86,17 +141,26 @@ You MUST respond with a valid JSON object (no markdown, no code fences) using th
   "summary": "<2-3 sentence natural language threat assessment>",
   "evidence": ["<evidence point 1>", "<evidence point 2>", ...],
   "recommendations": ["<action 1>", "<action 2>", ...],
-  "linkedIncidents": [{"id": "<incident id>", "title": "<title>", "severity": <1-5>}, ...]
+  "linkedIncidents": [{"id": "<incident id>", "title": "<title>", "severity": <1-5>}, ...],
+  "forecast": {
+    "direction": "escalating" | "stable" | "de-escalating",
+    "horizon": "<e.g. '7-14 days'>",
+    "rationale": "<1-2 sentences explaining the projection>",
+    "riskProjection": "low" | "medium" | "high" | "critical"
+  }
 }
 
 GUIDELINES:
-- Base your analysis ONLY on the incident data provided above
+- Base your analysis ONLY on the incident data and trend statistics provided above
 - Reference specific incidents by their titles and locations
 - Risk level should reflect the highest severity incidents matching the query
 - Confidence should reflect how many relevant incidents you found
 - Provide 3-6 evidence points citing specific incidents
 - Give 3-5 actionable security recommendations
 - Link the most relevant incidents (up to 5)
+- PREDICTIVE ANALYSIS: Use the trend data to project future risk. Look at week-over-week changes, category trends, and regional patterns to forecast threat direction
+- If a category or region shows a RISING trend, factor that into a higher risk projection
+- The forecast.direction should reflect whether you expect things to get worse, stay the same, or improve
 - If no incidents match the query, say so honestly and set riskLevel to "low"`;
 
     console.log("Calling AI gateway with streaming...");

@@ -4,6 +4,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
+import { computeTrend } from "@/lib/exposureScore";
 import { Button } from "@/components/ui/button";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, ArrowRight as ArrowRightIcon, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
 import { CreateIncidentDialog } from "@/components/dashboard/CreateIncidentDialog";
@@ -360,6 +361,18 @@ export default function DailyBrief() {
     return incidents.filter(i => i.section === 'trending' || i.trend).filter(matchesGeoFilters);
   }, [incidents, selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
+  // Compute overall trend direction
+  const overallTrend = useMemo(() => computeTrend(incidents as any[]), [incidents]);
+
+  // Per-category trends
+  const categoryTrends = useMemo(() => {
+    const trends: Record<string, "rising" | "falling" | "stable"> = {};
+    for (const cat of THREAT_CATEGORIES) {
+      trends[cat.id] = computeTrend(incidents as any[], 7, (i: any) => i.category === cat.id);
+    }
+    return trends;
+  }, [incidents]);
+
   const myRegionIncidents = useMemo(() => {
     if (monitoredRegions.length === 0) return [];
     return incidents.filter(i =>
@@ -504,6 +517,31 @@ export default function DailyBrief() {
               </span>
             </label>
           ))}
+        </div>
+      </div>
+
+      {/* Trend Indicators Strip */}
+      <div className="flex items-center gap-4 p-3 bg-card rounded border border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground">7D TREND:</span>
+          {overallTrend === "rising" && <Badge className="bg-destructive/20 text-destructive text-[9px] font-mono px-1.5 py-0"><TrendingUp className="h-3 w-3 mr-1 inline" />RISING</Badge>}
+          {overallTrend === "falling" && <Badge className="bg-emerald-600/20 text-emerald-400 text-[9px] font-mono px-1.5 py-0"><TrendingDown className="h-3 w-3 mr-1 inline" />DECLINING</Badge>}
+          {overallTrend === "stable" && <Badge className="bg-muted text-muted-foreground text-[9px] font-mono px-1.5 py-0"><ArrowRightIcon className="h-3 w-3 mr-1 inline" />STABLE</Badge>}
+        </div>
+        <Separator orientation="vertical" className="h-5" />
+        <div className="flex items-center gap-3 flex-wrap">
+          {THREAT_CATEGORIES.map(cat => {
+            const trend = categoryTrends[cat.id];
+            if (!trend) return null;
+            return (
+              <div key={cat.id} className="flex items-center gap-1">
+                <span className="text-[8px] font-mono text-muted-foreground">{cat.label}:</span>
+                {trend === "rising" && <TrendingUp className="h-3 w-3 text-destructive" />}
+                {trend === "falling" && <TrendingDown className="h-3 w-3 text-emerald-400" />}
+                {trend === "stable" && <ArrowRightIcon className="h-3 w-3 text-muted-foreground" />}
+              </div>
+            );
+          })}
         </div>
       </div>
 
