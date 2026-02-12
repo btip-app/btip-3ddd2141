@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .acronym {
+    letter-spacing: -0.03em;
+  }
+}
+
 @layer base {
   :root {
     --background: 220 20% 10%;

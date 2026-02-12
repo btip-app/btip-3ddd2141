@@ -82,7 +82,7 @@ export function DashboardSidebar() {
             <Shield className="h-5 w-5 text-primary flex-shrink-0" />
             {!collapsed && (
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-sm tracking-tight">BTIP</span>
+                <span className="font-mono font-bold text-sm acronym">BTIP</span>
                 <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground font-mono">v1.0</span>
               </div>
