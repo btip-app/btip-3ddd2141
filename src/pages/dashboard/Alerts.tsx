@@ -36,6 +36,7 @@ import {
   Globe,
   Database,
   Newspaper,
+  MapPinPlus,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -131,6 +132,7 @@ export default function Alerts() {
   const [ingestingMeta, setIngestingMeta] = useState(false);
   const [ingestingGdelt, setIngestingGdelt] = useState(false);
   const [ingestingAcled, setIngestingAcled] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
 
   async function handleIngest() {
     setIngesting(true);
@@ -214,6 +216,23 @@ export default function Alerts() {
       toast.error(e.message || "ACLED ingestion failed");
     } finally {
       setIngestingAcled(false);
+    }
+  }
+
+  async function handleGeocode() {
+    setGeocoding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("geocode-incidents", {
+        body: { limit: 50 },
+      });
+      if (error) throw error;
+      toast.success(`Geocoded ${data.geocoded} incidents (${data.failed} failed)`);
+      auditLog("GEOCODE_RUN", `Enriched ${data.geocoded}/${data.total} incidents with coordinates`);
+    } catch (e: any) {
+      console.error("Geocode error:", e);
+      toast.error(e.message || "Geocoding failed");
+    } finally {
+      setGeocoding(false);
     }
   }
 
@@ -336,6 +355,16 @@ export default function Alerts() {
           >
             {ingestingMeta ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Globe className="h-3 w-3 mr-1" />}
             {ingestingMeta ? "Scraping…" : "Meta"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleGeocode}
+            disabled={geocoding}
+          >
+            {geocoding ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MapPinPlus className="h-3 w-3 mr-1" />}
+            {geocoding ? "Geocoding…" : "Geocode"}
           </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />
