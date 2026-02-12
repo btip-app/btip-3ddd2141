@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
 
     const subreddits = body.subreddits?.length ? body.subreddits : DEFAULT_SUBREDDITS;
 
-    console.log(`Reddit SOCMINT: scraping ${subreddits.length} subreddits (cron: ${isCron})`);
+    console.log(`Reddit SOCMINT: scraping ${subreddits.length} subreddits`);
 
     // Step 1: Fetch posts from all subreddits
     const allPosts: any[] = [];
