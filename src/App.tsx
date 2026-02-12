@@ -29,6 +29,7 @@ import Escalations from "./pages/dashboard/Escalations";
 import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import Socmint from "./pages/dashboard/Socmint";
+import EntityGraph from "./pages/dashboard/EntityGraph";
 import KeysUsed from "./pages/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
@@ -97,6 +98,11 @@ const App = () => (
                 <Route path="socmint" element={
                   <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
                     <Socmint />
+                  </RoleGate>
+                } />
+                <Route path="entities" element={
+                  <RoleGate allowed={['admin', 'analyst']} fallback="denied">
+                    <EntityGraph />
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />

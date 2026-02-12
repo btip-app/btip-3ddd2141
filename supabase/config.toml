@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.admin-signup]
 verify_jwt = false
+
+[functions.extract-entities]
+verify_jwt = false

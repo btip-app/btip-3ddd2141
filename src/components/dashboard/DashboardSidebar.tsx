@@ -12,6 +12,7 @@ import {
   ClipboardList,
   AlertTriangle,
   Activity,
+  Network,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +46,7 @@ const mainNavItems: NavItem[] = [
   { title: 'Alerts', url: '/dashboard/alerts', icon: Bell, roles: ['admin', 'analyst', 'operator'] },
   { title: 'SOCMINT', url: '/dashboard/socmint', icon: BarChart3, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Copilot', url: '/dashboard/copilot', icon: Bot, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Entities', url: '/dashboard/entities', icon: Network, roles: ['admin', 'analyst'] },
 ];
 
 const adminNavItems: NavItem[] = [
