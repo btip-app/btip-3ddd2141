@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.weather-risk]
 verify_jwt = false
+
+[functions.ingest-cyber]
+verify_jwt = false
