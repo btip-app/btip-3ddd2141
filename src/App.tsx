@@ -32,6 +32,7 @@ import Socmint from "./pages/dashboard/Socmint";
 import EntityGraph from "./pages/dashboard/EntityGraph";
 import ClassificationAccuracy from "./pages/dashboard/ClassificationAccuracy";
 import RawEvents from "./pages/dashboard/RawEvents";
+import Forecast from "./pages/dashboard/Forecast";
 import KeysUsed from "./pages/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
@@ -115,6 +116,11 @@ const App = () => (
                 <Route path="raw-events" element={
                   <RoleGate allowed={['admin']} fallback="denied">
                     <RawEvents />
+                  </RoleGate>
+                } />
+                <Route path="forecast" element={
+                  <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
+                    <Forecast />
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />
