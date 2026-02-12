@@ -12,6 +12,7 @@ import {
   ClipboardList,
   AlertTriangle,
   Activity,
+  Key,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -52,6 +53,7 @@ const adminNavItems: NavItem[] = [
   { title: 'Activity', url: '/dashboard/activity', icon: Activity, roles: ['admin'] },
   { title: 'Admin', url: '/dashboard/admin', icon: Settings, roles: ['admin'] },
   { title: 'Audit Log', url: '/dashboard/audit-log', icon: ClipboardList, roles: ['admin'] },
+  { title: 'Keys Used', url: '/dashboard/keys', icon: Key, roles: ['admin'] },
 ];
 
 export function DashboardSidebar() {
