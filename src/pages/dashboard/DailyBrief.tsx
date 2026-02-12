@@ -51,6 +51,7 @@ const THREAT_CATEGORIES = [
   { id: "protest", label: "Protest / Civil Unrest" },
   { id: "political", label: "Political Instability" },
   { id: "piracy", label: "Piracy / Maritime" },
+  { id: "cyber", label: "Cyber Threats" },
 ];
 
 // (Incident type imported from useIncidents hook)

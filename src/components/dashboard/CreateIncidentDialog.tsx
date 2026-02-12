@@ -38,6 +38,7 @@ const CATEGORIES = [
   { value: 'protest', label: 'Protest / Civil Unrest' },
   { value: 'political', label: 'Political Instability' },
   { value: 'piracy', label: 'Piracy / Maritime' },
+  { value: 'cyber', label: 'Cyber Threats' },
 ];
 
 const incidentSchema = z.object({
