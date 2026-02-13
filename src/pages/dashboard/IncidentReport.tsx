@@ -77,6 +77,9 @@ function getRecommendedActions(incident: Incident): string[] {
   if (incident.category === "piracy") {
     base.push("Coordinate with maritime security escorts");
   }
+  if (incident.category === "cyber") {
+    base.push("Activate incident response team and isolate affected systems");
+  }
   base.push("Continue monitoring for escalation indicators");
   return base;
 }

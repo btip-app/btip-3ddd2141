@@ -50,7 +50,7 @@ const SolutionSection = () => {
             >
               <div className="w-2 h-2 rounded-full bg-primary" />
               <div className="h-px flex-1 bg-border" />
-              <span className="text-xs font-mono text-muted-foreground">BTIP</span>
+              <span className="text-xs font-mono text-muted-foreground acronym">BTIP</span>
               <div className="h-px flex-1 bg-border" />
               <div className="w-2 h-2 rounded-full bg-primary" />
             </div>

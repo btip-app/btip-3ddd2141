@@ -39,7 +39,8 @@ async function scrapeWithFirecrawl(url: string, apiKey: string): Promise<string>
 
     const data = await response.json();
     const markdown = data?.data?.markdown || data?.markdown || "";
-    return markdown.slice(0, 5001); // cap per page
+    // Code B Logic: Cap at 5000 characters
+    return markdown.slice(0, 5000);
   } catch (e) {
     console.warn(`Firecrawl error for ${url}:`, e);
     return "";
@@ -52,6 +53,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Auth Check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -64,6 +66,7 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // Verify User
     const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -85,7 +88,7 @@ Deno.serve(async (req) => {
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI gateway not configured" }), {
+      return new Response(JSON.stringify({ error: "Gemini API key not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -97,7 +100,7 @@ Deno.serve(async (req) => {
 
     const targets = body.targets?.length ? body.targets : DEFAULT_TARGETS;
 
-    console.log(`Meta SOCMINT: scraping ${targets.length} targets for user ${user.id}`);
+    console.log(`Meta SOCMINT: scraping ${targets.length} targets`);
 
     // Step 1: Scrape all targets with Firecrawl
     const scrapedContent: { label: string; url: string; content: string }[] = [];
@@ -155,6 +158,7 @@ RULES:
 - Return at most 15 incidents
 - If no real incidents found, return []`;
 
+    // CHANGED: Call Google Gemini Direct API (OpenAI-compatible endpoint)
     const aiRes = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
@@ -162,7 +166,7 @@ RULES:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gemini-2.5-flash",
+        model: "gemini-2.5-flash", // Standard valid model
         messages: [{ role: "user", content: extractionPrompt }],
         temperature: 0.1,
         max_tokens: 4000,
@@ -180,7 +184,11 @@ RULES:
 
     const aiData = await aiRes.json();
     const rawContent = aiData.choices?.[0]?.message?.content || "[]";
-    const cleanedContent = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Extract first JSON array (non-greedy)
+    const jsonMatch = rawContent.match(/\[[\s\S]*?\]/);
+    const cleanedContent = jsonMatch ? jsonMatch[0] : "[]";
+
 
     let extractedIncidents: any[];
     try {
@@ -196,7 +204,7 @@ RULES:
 
     console.log(`AI extracted ${extractedIncidents.length} incidents from Meta`);
 
-    // Step 3: Deduplicating 
+    // Step 3: Deduplicate
     const { data: existingIncidents } = await supabase
       .from("incidents")
       .select("title")

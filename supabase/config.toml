@@ -1,4 +1,4 @@
-project_id = "jbldlgturludgqjqwcgx"
+project_id = "onqxvcsbkppuserrsumn"
 
 [functions.copilot-analyze]
 verify_jwt = false
@@ -10,4 +10,31 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.ingest-meta]
+verify_jwt = false
+
+[functions.ingest-gdelt]
+verify_jwt = false
+
+[functions.ingest-acled]
+verify_jwt = false
+
+[functions.check-ip-reputation]
+verify_jwt = false
+
+[functions.geocode-incidents]
+verify_jwt = false
+
+[functions.weather-risk]
+verify_jwt = false
+
+[functions.ingest-cyber]
+verify_jwt = false
+
+[functions.ingest-telegram]
+verify_jwt = false
+
+[functions.ingest-twitter]
+verify_jwt = false
+
+[functions.admin-signup]
 verify_jwt = false

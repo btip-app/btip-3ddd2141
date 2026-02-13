@@ -34,6 +34,10 @@ import {
   Download,
   MessageSquare,
   Globe,
+  Database,
+  Newspaper,
+  MapPinPlus,
+  ShieldAlert,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -127,6 +131,10 @@ export default function Alerts() {
   const [ingesting, setIngesting] = useState(false);
   const [ingestingReddit, setIngestingReddit] = useState(false);
   const [ingestingMeta, setIngestingMeta] = useState(false);
+  const [ingestingGdelt, setIngestingGdelt] = useState(false);
+  const [ingestingAcled, setIngestingAcled] = useState(false);
+  const [ingestingCyber, setIngestingCyber] = useState(false);
+  const [geocoding, setGeocoding] = useState(false);
 
   async function handleIngest() {
     setIngesting(true);
@@ -176,6 +184,74 @@ export default function Alerts() {
       toast.error(e.message || "Meta ingestion failed");
     } finally {
       setIngestingMeta(false);
+    }
+  }
+
+  async function handleIngestGdelt() {
+    setIngestingGdelt(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-gdelt", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`GDELT: ${data.inserted} new incidents from ${data.fetched} articles (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("INGEST_GDELT", `Fetched ${data.fetched} articles, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("GDELT ingest error:", e);
+      toast.error(e.message || "GDELT ingestion failed");
+    } finally {
+      setIngestingGdelt(false);
+    }
+  }
+
+  async function handleIngestAcled() {
+    setIngestingAcled(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-acled", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`ACLED: ${data.inserted} new incidents from ${data.fetched} events (${data.duplicatesSkipped} duplicates skipped)`);
+      auditLog("INGEST_ACLED", `Fetched ${data.fetched} events, inserted ${data.inserted} incidents`);
+    } catch (e: any) {
+      console.error("ACLED ingest error:", e);
+      toast.error(e.message || "ACLED ingestion failed");
+    } finally {
+      setIngestingAcled(false);
+    }
+  }
+
+  async function handleIngestCyber() {
+    setIngestingCyber(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ingest-cyber", {
+        body: {},
+      });
+      if (error) throw error;
+      toast.success(`Cyber Intel: ${data.inserted} new threats (AbuseIPDB: ${data.sources?.abuseipdb || 0}, OTX: ${data.sources?.alienvault_otx || 0})`);
+      auditLog("INGEST_CYBER", `Ingested ${data.inserted} cyber threats, ${data.duplicatesSkipped} duplicates skipped`);
+    } catch (e: any) {
+      console.error("Cyber ingest error:", e);
+      toast.error(e.message || "Cyber threat ingestion failed");
+    } finally {
+      setIngestingCyber(false);
+    }
+  }
+
+  async function handleGeocode() {
+    setGeocoding(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("geocode-incidents", {
+        body: { limit: 50 },
+      });
+      if (error) throw error;
+      toast.success(`Geocoded ${data.geocoded} incidents (${data.failed} failed)`);
+      auditLog("GEOCODE_RUN", `Enriched ${data.geocoded}/${data.total} incidents with coordinates`);
+    } catch (e: any) {
+      console.error("Geocode error:", e);
+      toast.error(e.message || "Geocoding failed");
+    } finally {
+      setGeocoding(false);
     }
   }
 
@@ -248,13 +324,13 @@ export default function Alerts() {
             {alerts.length} total alerts • {newCount} unacknowledged • Real-time
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button
             variant="outline"
             size="sm"
             className="text-[10px] font-mono h-7"
             onClick={handleIngest}
-            disabled={ingesting || ingestingReddit || ingestingMeta}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled}
           >
             {ingesting ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Download className="h-3 w-3 mr-1" />}
             {ingesting ? "Ingesting…" : "Ingest OSINT"}
@@ -263,21 +339,61 @@ export default function Alerts() {
             variant="outline"
             size="sm"
             className="text-[10px] font-mono h-7"
+            onClick={handleIngestGdelt}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled}
+          >
+            {ingestingGdelt ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Newspaper className="h-3 w-3 mr-1" />}
+            {ingestingGdelt ? "Fetching…" : "GDELT"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestAcled}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled}
+          >
+            {ingestingAcled ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Database className="h-3 w-3 mr-1" />}
+            {ingestingAcled ? "Fetching…" : "ACLED"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
             onClick={handleIngestReddit}
-            disabled={ingesting || ingestingReddit || ingestingMeta}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled}
           >
             {ingestingReddit ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MessageSquare className="h-3 w-3 mr-1" />}
-            {ingestingReddit ? "Scanning…" : "Reddit SOCMINT"}
+            {ingestingReddit ? "Scanning…" : "Reddit"}
           </Button>
           <Button
             variant="outline"
             size="sm"
             className="text-[10px] font-mono h-7"
             onClick={handleIngestMeta}
-            disabled={ingesting || ingestingReddit || ingestingMeta}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled}
           >
             {ingestingMeta ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Globe className="h-3 w-3 mr-1" />}
-            {ingestingMeta ? "Scraping…" : "Meta SOCMINT"}
+            {ingestingMeta ? "Scraping…" : "Meta"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleIngestCyber}
+            disabled={ingesting || ingestingReddit || ingestingMeta || ingestingGdelt || ingestingAcled || ingestingCyber}
+          >
+            {ingestingCyber ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <ShieldAlert className="h-3 w-3 mr-1" />}
+            {ingestingCyber ? "Scanning…" : "Cyber Intel"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[10px] font-mono h-7"
+            onClick={handleGeocode}
+            disabled={geocoding}
+          >
+            {geocoding ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <MapPinPlus className="h-3 w-3 mr-1" />}
+            {geocoding ? "Geocoding…" : "Geocode"}
           </Button>
           <Badge variant="outline" className="text-[10px] font-mono">
             <Radio className="h-3 w-3 mr-1 text-green-500" />

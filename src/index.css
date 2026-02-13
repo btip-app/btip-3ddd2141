@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+  .acronym {
+    letter-spacing: -0.03em;
+  }
+}
+
 @layer base {
   :root {
     --background: 220 20% 10%;
@@ -58,8 +64,27 @@
     @apply border-border;
   }
 
+  html {
+    font-size: 16px;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Enforce minimum readable font sizes — bump tiny arbitrary Tailwind classes */
+  [class*="text-[7px]"],
+  [class*="text-[8px]"],
+  [class*="text-[9px]"] {
+    font-size: 0.75rem !important; /* 12px */
+  }
+
+  [class*="text-[10px]"],
+  [class*="text-[11px]"] {
+    font-size: 0.8125rem !important; /* 13px */
   }
 }
 

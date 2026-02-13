@@ -1,11 +1,12 @@
-import {
-  FileText,
-  Map,
+import { 
+  FileText, 
+  Map, 
   Package,
-  Bell,
+  Bell, 
   BarChart3,
   Bot,
   Settings,
+  Shield,
   LogOut,
   ChevronRight,
   ClipboardList,
@@ -78,9 +79,10 @@ export function DashboardSidebar() {
         {/* Brand */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center gap-2">
+            <Shield className="h-5 w-5 text-primary flex-shrink-0" />
             {!collapsed && (
               <div className="flex items-center gap-2">
-                <span className="font-mono font-bold text-sm tracking-tight">BTIP</span>
+                <span className="font-mono font-bold text-sm acronym">BTIP</span>
                 <ChevronRight className="h-3 w-3 text-muted-foreground" />
                 <span className="text-xs text-muted-foreground font-mono">v1.0</span>
               </div>
@@ -107,7 +109,7 @@ export function DashboardSidebar() {
               {visibleMainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
-                    <NavLink
+                    <NavLink 
                       to={item.url}
                       className="flex items-center gap-3 text-sm font-mono"
                       activeClassName="bg-secondary text-primary border-l-2 border-primary"
@@ -133,7 +135,7 @@ export function DashboardSidebar() {
                 {visibleAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild tooltip={item.title}>
-                      <NavLink
+                      <NavLink 
                         to={item.url}
                         className="flex items-center gap-3 text-sm font-mono"
                         activeClassName="bg-secondary text-primary border-l-2 border-primary"
@@ -154,7 +156,7 @@ export function DashboardSidebar() {
       <SidebarFooter className="border-t border-border p-2">
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton
+            <SidebarMenuButton 
               onClick={signOut}
               tooltip="Sign Out"
               className="text-muted-foreground hover:text-destructive font-mono text-sm"

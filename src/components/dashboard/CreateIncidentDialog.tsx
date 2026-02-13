@@ -32,12 +32,15 @@ import {
 } from '@/data/geography';
 
 const CATEGORIES = [
-  { value: 'kidnapping', label: 'Kidnapping' },
+  { value: 'armed-conflict', label: 'Armed Conflict' },
   { value: 'terrorism', label: 'Terrorism' },
-  { value: 'robbery', label: 'Armed Robbery' },
-  { value: 'protest', label: 'Protest / Civil Unrest' },
-  { value: 'political', label: 'Political Instability' },
+  { value: 'civil-unrest', label: 'Civil Unrest' },
+  { value: 'crime', label: 'Crime / Lawlessness' },
+  { value: 'political-instability', label: 'Political Instability' },
   { value: 'piracy', label: 'Piracy / Maritime' },
+  { value: 'kidnapping', label: 'Kidnapping' },
+  { value: 'cyber-attack', label: 'Cyber Attack' },
+  { value: 'natural-disaster', label: 'Natural Disaster' },
 ];
 
 const incidentSchema = z.object({

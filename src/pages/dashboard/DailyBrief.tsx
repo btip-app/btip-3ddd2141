@@ -4,6 +4,7 @@ import { useUserRole } from "@/hooks/useUserRole";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
+import { computeTrend } from "@/lib/exposureScore";
 import { Button } from "@/components/ui/button";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -25,7 +26,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, TrendingUp, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, ArrowRight as ArrowRightIcon, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
 import { CreateIncidentDialog } from "@/components/dashboard/CreateIncidentDialog";
@@ -35,6 +36,7 @@ import {
   getSubdivisionsForCountry,
   getSubdivisionTerm,
 } from "@/data/geography";
+import { supabase } from "@/integrations/supabase/client";
 
 // Build region options from geography data
 const REGIONS = [
@@ -44,12 +46,15 @@ const REGIONS = [
 
 // Mock threat categories
 const THREAT_CATEGORIES = [
-  { id: "kidnapping", label: "Kidnapping" },
+  { id: "armed-conflict", label: "Armed Conflict" },
   { id: "terrorism", label: "Terrorism" },
-  { id: "robbery", label: "Armed Robbery" },
-  { id: "protest", label: "Protest / Civil Unrest" },
-  { id: "political", label: "Political Instability" },
+  { id: "civil-unrest", label: "Civil Unrest" },
+  { id: "crime", label: "Crime / Lawlessness" },
+  { id: "political-instability", label: "Political Instability" },
   { id: "piracy", label: "Piracy / Maritime" },
+  { id: "kidnapping", label: "Kidnapping" },
+  { id: "cyber-attack", label: "Cyber Attack" },
+  { id: "natural-disaster", label: "Natural Disaster" },
 ];
 
 // (Incident type imported from useIncidents hook)
@@ -124,7 +129,7 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
           </span>
         )}
       </div>
-      
+
       <div className="flex items-center gap-2 text-[10px] font-mono text-muted-foreground mb-2">
         <span className="flex items-center gap-1">
           <Clock className="h-3 w-3" />
@@ -135,7 +140,7 @@ function IncidentCard({ incident, onClick, showTrend }: IncidentCardProps) {
           {incident.location}
         </span>
       </div>
-      
+
       <div className="flex items-center gap-1.5">
         <Badge className={`${getSeverityColor(incident.severity)} text-[10px] font-mono px-1.5 py-0 h-5 rounded`}>
           SEV-{incident.severity}
@@ -360,6 +365,18 @@ export default function DailyBrief() {
     return incidents.filter(i => i.section === 'trending' || i.trend).filter(matchesGeoFilters);
   }, [incidents, selectedRegion, selectedCountry, selectedSubdivision, selectedCategories]);
 
+  // Compute overall trend direction
+  const overallTrend = useMemo(() => computeTrend(incidents as any[]), [incidents]);
+
+  // Per-category trends
+  const categoryTrends = useMemo(() => {
+    const trends: Record<string, "rising" | "falling" | "stable"> = {};
+    for (const cat of THREAT_CATEGORIES) {
+      trends[cat.id] = computeTrend(incidents as any[], 7, (i: any) => i.category === cat.id);
+    }
+    return trends;
+  }, [incidents]);
+
   const myRegionIncidents = useMemo(() => {
     if (monitoredRegions.length === 0) return [];
     return incidents.filter(i =>
@@ -424,7 +441,7 @@ export default function DailyBrief() {
           <Filter className="h-4 w-4 text-muted-foreground" />
           <span className="text-[10px] font-mono text-muted-foreground">FILTERS:</span>
         </div>
-        
+
         {/* Region Dropdown */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono text-muted-foreground">REGION:</span>
@@ -434,8 +451,8 @@ export default function DailyBrief() {
             </SelectTrigger>
             <SelectContent className="bg-card border-border z-50">
               {REGIONS.map(region => (
-                <SelectItem 
-                  key={region.value} 
+                <SelectItem
+                  key={region.value}
                   value={region.value}
                   className="text-[10px] font-mono"
                 >
@@ -490,8 +507,8 @@ export default function DailyBrief() {
         <div className="flex items-center gap-3 flex-wrap">
           <span className="text-[10px] font-mono text-muted-foreground">CATEGORIES:</span>
           {THREAT_CATEGORIES.map(category => (
-            <label 
-              key={category.id} 
+            <label
+              key={category.id}
               className="flex items-center gap-1.5 cursor-pointer"
             >
               <Checkbox
@@ -504,6 +521,31 @@ export default function DailyBrief() {
               </span>
             </label>
           ))}
+        </div>
+      </div>
+
+      {/* Trend Indicators Strip */}
+      <div className="flex items-center gap-4 p-3 bg-card rounded border border-border">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-mono text-muted-foreground">7D TREND:</span>
+          {overallTrend === "rising" && <Badge className="bg-destructive/20 text-destructive text-[9px] font-mono px-1.5 py-0"><TrendingUp className="h-3 w-3 mr-1 inline" />RISING</Badge>}
+          {overallTrend === "falling" && <Badge className="bg-emerald-600/20 text-emerald-400 text-[9px] font-mono px-1.5 py-0"><TrendingDown className="h-3 w-3 mr-1 inline" />DECLINING</Badge>}
+          {overallTrend === "stable" && <Badge className="bg-muted text-muted-foreground text-[9px] font-mono px-1.5 py-0"><ArrowRightIcon className="h-3 w-3 mr-1 inline" />STABLE</Badge>}
+        </div>
+        <Separator orientation="vertical" className="h-5" />
+        <div className="flex items-center gap-3 flex-wrap">
+          {THREAT_CATEGORIES.map(cat => {
+            const trend = categoryTrends[cat.id];
+            if (!trend) return null;
+            return (
+              <div key={cat.id} className="flex items-center gap-1">
+                <span className="text-[8px] font-mono text-muted-foreground">{cat.label}:</span>
+                {trend === "rising" && <TrendingUp className="h-3 w-3 text-destructive" />}
+                {trend === "falling" && <TrendingDown className="h-3 w-3 text-emerald-400" />}
+                {trend === "stable" && <ArrowRightIcon className="h-3 w-3 text-muted-foreground" />}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -626,6 +668,31 @@ export default function DailyBrief() {
           <IncidentDetailPanel incident={selectedIncident} />
         </SheetContent>
       </Sheet>
+
+      {/* DEBUG: Remove after fixing */}
+      <div className="p-4 bg-muted/20 border border-muted mt-8 rounded overflow-auto max-h-60 text-[10px] font-mono">
+        <strong>DEBUG: Raw Incidents ({incidents.length})</strong>
+        <pre>{JSON.stringify(incidents.slice(0, 5).map(i => ({ id: i.id, cat: i.category, sec: i.section, trend: i.trend, region: i.region })), null, 2)}</pre>
+        <strong>TopThreats Filtered: {filteredTopThreats.length}</strong>
+        <p>Selected Categories: {selectedCategories.join(', ')}</p>
+        <div className="mt-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={async () => {
+              try {
+                const { data, error } = await supabase.functions.invoke('ingest-incidents');
+                if (error) alert('Error: ' + error.message);
+                else alert('Success: ' + JSON.stringify(data));
+              } catch (e: any) {
+                alert('Exception: ' + e.message);
+              }
+            }}
+          >
+            Trigger Ingest Incidents
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

@@ -23,7 +23,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Settings, Users, Shield, Loader2, UserPlus, Check, X } from 'lucide-react';
+import { Settings, Users, Shield, Loader2, UserPlus, Check, X, Globe, MessageCircle } from 'lucide-react';
+import { OsintSourcesManager } from '@/components/dashboard/OsintSourcesManager';
+import { TelegramChannelsManager } from '@/components/dashboard/TelegramChannelsManager';
 
 interface UserWithRole {
   user_id: string;
@@ -187,6 +189,9 @@ export default function Admin() {
             {pendingCount > 0 && (
               <Badge variant="destructive" className="ml-1.5 text-[7px] px-1 py-0">{pendingCount}</Badge>
             )}
+          </TabsTrigger>
+          <TabsTrigger value="sources" className="text-[10px] font-mono">
+            <Globe className="h-3 w-3 mr-1" /> Intel Sources
           </TabsTrigger>
         </TabsList>
 
@@ -382,6 +387,14 @@ export default function Admin() {
                 )}
               </TableBody>
             </Table>
+          </Card>
+        </TabsContent>
+        <TabsContent value="sources" className="mt-4 space-y-6">
+          <Card className="bg-card border-border p-4">
+            <OsintSourcesManager />
+          </Card>
+          <Card className="bg-card border-border p-4">
+            <TelegramChannelsManager />
           </Card>
         </TabsContent>
       </Tabs>

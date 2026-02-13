@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Target,
   Terminal,
+  TrendingUp,
 } from "lucide-react";
 import { exportCopilotPdf } from "@/lib/exportPdf";
 
@@ -39,6 +40,13 @@ interface LinkedIncident {
   severity: number;
 }
 
+interface ForecastData {
+  direction: "escalating" | "stable" | "de-escalating";
+  horizon: string;
+  rationale: string;
+  riskProjection: RiskLevel;
+}
+
 interface CopilotResponse {
   riskLevel: RiskLevel;
   confidence: number;
@@ -46,6 +54,7 @@ interface CopilotResponse {
   evidence: string[];
   recommendations: string[];
   linkedIncidents: LinkedIncident[];
+  forecast?: ForecastData;
 }
 
 interface Message {
@@ -95,7 +104,7 @@ const SUGGESTED_QUERIES = [
   "Are there kidnapping threats near Bonny Island?",
 ];
 
-const DISCLAIMER = "This is decision-support intelligence, not a guarantee. Assessments are based on live incident data and should be validated against ground-truth sources before operational use.";
+const DISCLAIMER = "Advisory: This is decision-support intelligence based on available data. Validate assessments against ground-truth sources before operational use. Not a guarantee of safety.";
 
 // --- Component ---
 
@@ -220,6 +229,7 @@ export default function Copilot() {
                   evidence: parsed.evidence || [],
                   recommendations: parsed.recommendations || [],
                   linkedIncidents: parsed.linkedIncidents || [],
+                  forecast: parsed.forecast || undefined,
                 };
 
                 const finalMsg: Message = {
@@ -422,7 +432,7 @@ export default function Copilot() {
                         <div className="flex items-start gap-1.5 mt-2 px-2 py-1.5 rounded bg-accent/5 border border-accent/10">
                           <Info className="h-2.5 w-2.5 text-accent/60 mt-0.5 flex-shrink-0" />
                           <span className="text-[7px] font-mono text-accent/60 leading-relaxed">
-                            Intelligence assessment — not a guarantee of safety. Validate before operational use.
+                            Advisory: Decision-support intelligence — not a guarantee of safety. Validate before operational use.
                           </span>
                         </div>
                       )}
@@ -608,8 +618,6 @@ export default function Copilot() {
                 {selectedMessage.response.linkedIncidents.length > 0 && (
                   <>
                     <Separator />
-
-                    {/* Linked Incidents */}
                     <div>
                       <div className="text-[9px] font-mono text-muted-foreground mb-2">
                         LINKED INCIDENTS ({selectedMessage.response.linkedIncidents.length})
@@ -633,14 +641,49 @@ export default function Copilot() {
                   </>
                 )}
 
+                {/* Predictive Forecast */}
+                {selectedMessage.response.forecast && (
+                  <>
+                    <Separator />
+                    <div>
+                      <div className="text-[9px] font-mono text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <TrendingUp className="h-3 w-3" />
+                        PREDICTIVE FORECAST
+                      </div>
+                      <div className="p-3 rounded bg-secondary/30 border border-border space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge className={`${
+                            selectedMessage.response.forecast.direction === "escalating"
+                              ? "bg-destructive/20 text-destructive"
+                              : selectedMessage.response.forecast.direction === "de-escalating"
+                              ? "bg-emerald-600/20 text-emerald-400"
+                              : "bg-muted text-muted-foreground"
+                          } text-[9px] font-mono px-1.5 py-0`}>
+                            {selectedMessage.response.forecast.direction === "escalating" ? "↑" : selectedMessage.response.forecast.direction === "de-escalating" ? "↓" : "→"} {selectedMessage.response.forecast.direction.toUpperCase()}
+                          </Badge>
+                          <span className="text-[9px] font-mono text-muted-foreground">
+                            Horizon: {selectedMessage.response.forecast.horizon}
+                          </span>
+                          <Badge className={`${RISK_META[selectedMessage.response.forecast.riskProjection].className} text-[7px] font-mono px-1.5 py-0 ml-auto`}>
+                            PROJECTED: {RISK_META[selectedMessage.response.forecast.riskProjection].label}
+                          </Badge>
+                        </div>
+                        <p className="text-[10px] font-mono text-foreground/80 leading-relaxed">
+                          {selectedMessage.response.forecast.rationale}
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
+
                 {/* Analysis metadata */}
                 <Separator />
                 <div className="text-[8px] font-mono text-muted-foreground/50 space-y-0.5">
                   <div>Analysis ID: {selectedMessage.id}</div>
                   <div>Generated: {selectedMessage.timestamp}</div>
-                  <div>Data source: Live incident database</div>
+                  <div>Data source: Live incident database + trend analysis</div>
                   <div className="mt-1.5 pt-1.5 border-t border-border/30 text-accent/50">
-                    ⚠ Decision-support only. Not a guarantee.
+                    ⚠ Decision-support only. Forecasts are projections, not certainties.
                   </div>
                 </div>
               </div>

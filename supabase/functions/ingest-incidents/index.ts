@@ -20,30 +20,9 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
-
-    // Verify user has analyst/admin role
-    const anonClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: userError } = await anonClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (!FIRECRAWL_API_KEY) {
@@ -55,7 +34,8 @@ Deno.serve(async (req) => {
 
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI gateway not configured" }), {
+      return new Response(JSON.stringify({ error: "Gemini not configured" }), {
+
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -75,9 +55,9 @@ Deno.serve(async (req) => {
       ? dbSources
       : DEFAULT_SOURCES;
 
-    console.log(`Ingestion started by user ${user.id}, scraping ${sourcesToScrape.length} sources`);
+    console.log(`Ingestion started, scraping ${sourcesToScrape.length} sources`);
 
-    //  Scraping each source via Firecrawl
+    // Step 1: Scrape each source via Firecrawl
     const scrapedContent: string[] = [];
     for (const source of sourcesToScrape) {
       try {
@@ -118,7 +98,7 @@ Deno.serve(async (req) => {
 
     console.log(`Scraped ${scrapedContent.length} sources, sending to AI for extraction`);
 
-    //  Using AI to extract structured incidents from scraped content
+    // Step 2: Use AI to extract structured incidents from scraped content
     const extractionPrompt = `You are a security intelligence analyst. Extract real security incidents from the following scraped news content.
 
 SCRAPED CONTENT:
@@ -176,7 +156,11 @@ RULES:
 
     const aiData = await aiRes.json();
     const rawContent = aiData.choices?.[0]?.message?.content || "[]";
-    const cleanedContent = rawContent.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+
+    // Extract first JSON array found in response
+    const jsonMatch = rawContent.match(/\[[\s\S]*?\]/);
+    const cleanedContent = jsonMatch ? jsonMatch[0] : "[]";
+
 
     let extractedIncidents: any[];
     try {
@@ -194,7 +178,7 @@ RULES:
 
     console.log(`AI extracted ${extractedIncidents.length} incidents`);
 
-    //  Deduplicating against existing incidents (by title similarity)
+    // Step 3: Deduplicate against existing incidents (by title similarity)
     const { data: existingIncidents } = await supabase
       .from("incidents")
       .select("title")
@@ -209,7 +193,7 @@ RULES:
 
     console.log(`${newIncidents.length} new incidents after deduplication`);
 
-    // Inserting into database
+    // Step 4: Insert into database
     if (newIncidents.length > 0) {
       const rows = newIncidents.map((inc: any) => ({
         title: (inc.title || "Unknown Incident").slice(0, 200),

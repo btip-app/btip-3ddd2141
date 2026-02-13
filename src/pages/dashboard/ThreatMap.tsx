@@ -2,10 +2,11 @@ import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import EscalateModal from "@/components/dashboard/EscalateModal";
-import Map, { Marker, NavigationControl } from "react-map-gl";
+import Map, { Marker, NavigationControl, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -33,15 +34,19 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 
-const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN;
+const MAPBOX_TOKEN = "pk.eyJ1IjoiZGljaGlleHBsaWNpdCIsImEiOiJjbWxmM3F3NHIwMG9wM2Vwdnprcjc0cmx1In0.WIfFr47OLll54VZXQy1Vsg";
 
 const THREAT_TYPES = [
   { value: "all", label: "All Threats" },
-  { value: "kidnapping", label: "Kidnapping" },
+  { value: "armed-conflict", label: "Armed Conflict" },
   { value: "terrorism", label: "Terrorism" },
-  { value: "robbery", label: "Armed Robbery" },
-  { value: "protest", label: "Civil Unrest" },
-  { value: "piracy", label: "Maritime / Piracy" },
+  { value: "civil-unrest", label: "Civil Unrest" },
+  { value: "crime", label: "Crime / Lawlessness" },
+  { value: "political-instability", label: "Political Instability" },
+  { value: "piracy", label: "Piracy / Maritime" },
+  { value: "kidnapping", label: "Kidnapping" },
+  { value: "cyber-attack", label: "Cyber Attack" },
+  { value: "natural-disaster", label: "Natural Disaster" },
 ];
 
 const TIME_WINDOWS = [
@@ -131,6 +136,7 @@ function ThreatMarker({ marker, onClick }: { marker: MarkerData; onClick: () => 
 export default function ThreatMap() {
   const navigate = useNavigate();
   const { incidents, loading } = useIncidents();
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -148,6 +154,16 @@ export default function ThreatMap() {
   });
 
   const allMarkers = useMemo(() => incidents.map(incidentToMarker).filter(Boolean) as MarkerData[], [incidents]);
+
+  // GeoJSON for heatmap layer
+  const heatmapGeoJSON = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: allMarkers.map(m => ({
+      type: "Feature" as const,
+      properties: { severity: m.severity, confidence: m.confidence },
+      geometry: { type: "Point" as const, coordinates: [m.lng, m.lat] },
+    })),
+  }), [allMarkers]);
 
   const filteredMarkers = useMemo(() => {
     const now = new Date();
@@ -254,6 +270,14 @@ export default function ThreatMap() {
           </div>
 
           <div className="ml-auto flex items-center gap-2">
+            <Button
+              variant={showHeatmap ? "default" : "outline"}
+              size="sm"
+              className="text-[10px] font-mono h-7"
+              onClick={() => setShowHeatmap(!showHeatmap)}
+            >
+              {showHeatmap ? "MARKERS" : "HEATMAP"}
+            </Button>
             <Badge variant="outline" className="text-[10px] font-mono">
               <Crosshair className="h-3 w-3 mr-1" />
               {filteredMarkers.length} / {allMarkers.length} INCIDENTS
@@ -272,9 +296,33 @@ export default function ThreatMap() {
           style={{ width: '100%', height: '100%' }}
         >
           <NavigationControl position="top-left" />
-          {filteredMarkers.map(marker => (
-            <ThreatMarker key={marker.id} marker={marker} onClick={() => handleMarkerClick(marker)} />
-          ))}
+          {showHeatmap ? (
+            <Source type="geojson" data={heatmapGeoJSON}>
+              <Layer
+                id="incident-heat"
+                type="heatmap"
+                paint={{
+                  'heatmap-weight': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.2, 3, 0.5, 5, 1],
+                  'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+                  'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 9, 40],
+                  'heatmap-opacity': 0.7,
+                  'heatmap-color': [
+                    'interpolate', ['linear'], ['heatmap-density'],
+                    0, 'rgba(0,0,0,0)',
+                    0.2, 'rgba(0,128,255,0.4)',
+                    0.4, 'rgba(0,200,150,0.5)',
+                    0.6, 'rgba(255,200,0,0.6)',
+                    0.8, 'rgba(255,100,0,0.8)',
+                    1, 'rgba(255,0,0,0.9)',
+                  ],
+                }}
+              />
+            </Source>
+          ) : (
+            filteredMarkers.map(marker => (
+              <ThreatMarker key={marker.id} marker={marker} onClick={() => handleMarkerClick(marker)} />
+            ))
+          )}
         </Map>
       </div>
 
