@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { mapDatabaseError } from '@/lib/errorMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
@@ -115,7 +116,7 @@ export default function Admin() {
       .update({ status: 'denied', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
       .eq('id', id);
     if (error) {
-      toast.error(error.message);
+      toast.error(mapDatabaseError(error));
     } else {
       toast.success('Request denied');
       setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'denied' } : r));
@@ -170,7 +171,7 @@ export default function Admin() {
       .eq('user_id', userId);
 
     if (error) {
-      toast.error('Failed to update role', { description: error.message });
+      toast.error('Failed to update role', { description: mapDatabaseError(error) });
     } else {
       toast.success('Role updated');
       setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, role: newRole } : u));

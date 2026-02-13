@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
+import { mapDatabaseError } from '@/lib/errorMessages';
 import { User, Building2, MapPin, Save, X, Plus, KeyRound, Loader2 } from 'lucide-react';
 import { AddRegionDialog } from '@/components/dashboard/AddRegionDialog';
 
@@ -30,7 +31,7 @@ function ChangePasswordCard() {
     setChangingPw(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) {
-      toast.error('Failed to change password', { description: error.message });
+      toast.error('Failed to change password', { description: mapDatabaseError(error) });
     } else {
       toast.success('Password updated successfully');
       setCurrentPassword('');
@@ -127,7 +128,7 @@ export default function ProfileSettings() {
       }, { onConflict: 'user_id' });
     
     if (error) {
-      toast.error('Failed to save profile', { description: error.message });
+      toast.error('Failed to save profile', { description: mapDatabaseError(error) });
     } else {
       toast.success('Profile updated');
     }

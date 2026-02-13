@@ -36,14 +36,22 @@ serve(async (req) => {
       });
     }
 
-    const { query, history } = await req.json();
-    if (!query || typeof query !== "string") {
-      return new Response(JSON.stringify({ error: "Missing query" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    let rawBody: any;
+    try { rawBody = await req.json(); } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const conversationHistory: { role: string; content: string }[] = Array.isArray(history) ? history : [];
+
+    const { query, history } = rawBody;
+    if (!query || typeof query !== "string" || query.length > 2000) {
+      return new Response(JSON.stringify({ error: "Invalid or missing query (max 2000 chars)" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const conversationHistory: { role: string; content: string }[] = (Array.isArray(history) ? history : [])
+      .slice(-10)
+      .filter((m: any) => typeof m?.role === "string" && typeof m?.content === "string" && m.content.length <= 5000);
 
     console.log(`Copilot query from user ${user.id}: ${query}`);
 

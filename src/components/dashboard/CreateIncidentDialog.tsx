@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useAuditLog } from '@/hooks/useAuditLog';
 import { toast } from 'sonner';
+import { mapDatabaseError } from '@/lib/errorMessages';
 import {
   Dialog,
   DialogContent,
@@ -143,7 +144,7 @@ export function CreateIncidentDialog({ open, onOpenChange }: CreateIncidentDialo
     setSaving(false);
 
     if (error) {
-      toast.error('Failed to create incident', { description: error.message });
+      toast.error('Failed to create incident', { description: mapDatabaseError(error) });
     } else {
       auditLog('INCIDENT_CREATE', parsed.data.title);
       toast.success('Incident created', { description: parsed.data.title });
