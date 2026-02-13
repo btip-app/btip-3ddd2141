@@ -144,6 +144,11 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Auth guard: require admin or analyst role
+  const { requireAdminOrAnalyst } = await import("../_shared/auth.ts");
+  const authResult = await requireAdminOrAnalyst(req);
+  if (!authResult.authorized) return authResult.response;
+
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

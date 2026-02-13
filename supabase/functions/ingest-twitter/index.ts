@@ -44,6 +44,11 @@ const SECURITY_KEYWORDS = ["security incident", "terror attack", "armed conflict
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Auth guard: require admin or analyst role
+  const { requireAdminOrAnalyst } = await import("../_shared/auth.ts");
+  const authResult = await requireAdminOrAnalyst(req);
+  if (!authResult.authorized) return authResult.response;
+
   const CK = Deno.env.get("TWITTER_CONSUMER_KEY"), CS = Deno.env.get("TWITTER_CONSUMER_SECRET");
   const AT = Deno.env.get("TWITTER_ACCESS_TOKEN"), ATS = Deno.env.get("TWITTER_ACCESS_TOKEN_SECRET");
   const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
