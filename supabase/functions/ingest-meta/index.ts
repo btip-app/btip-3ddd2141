@@ -65,6 +65,11 @@ const DEFAULT_TARGETS = [
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+  // Auth guard: require admin or analyst role
+  const { requireAdminOrAnalyst } = await import("../_shared/auth.ts");
+  const authResult = await requireAdminOrAnalyst(req);
+  if (!authResult.authorized) return authResult.response;
+
   try {
     const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
