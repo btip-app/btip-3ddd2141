@@ -5,6 +5,8 @@ import { useAuditLog } from "@/hooks/useAuditLog";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
 import { useMonitoredRegions } from "@/hooks/useMonitoredRegions";
 import { computeTrend } from "@/lib/exposureScore";
+import { useForecast } from "@/hooks/useForecast";
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Line } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Download, Plus } from "lucide-react";
 import { toast } from "sonner";
@@ -26,7 +28,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
-import { AlertTriangle, TrendingUp, TrendingDown, ArrowRight as ArrowRightIcon, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink } from "lucide-react";
+import { AlertTriangle, TrendingUp, TrendingDown, ArrowRight as ArrowRightIcon, MapPin, Clock, Shield, Filter, User, FileText, ExternalLink, Activity } from "lucide-react";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import { AddRegionDialog } from "@/components/dashboard/AddRegionDialog";
 import { CreateIncidentDialog } from "@/components/dashboard/CreateIncidentDialog";
@@ -270,6 +272,7 @@ export default function DailyBrief() {
   const { role, isExecutive } = useUserRole();
   const { log: auditLog } = useAuditLog();
   const { incidents, loading: incidentsLoading } = useIncidents();
+  const { globalForecast, severityForecast, categoryForecasts } = useForecast(60, 7);
   const [addRegionOpen, setAddRegionOpen] = useState(false);
   const [createIncidentOpen, setCreateIncidentOpen] = useState(false);
   const { regions: monitoredRegions, addRegion, removeRegion } = useMonitoredRegions();
@@ -549,6 +552,103 @@ export default function DailyBrief() {
         </div>
       </div>
 
+      {/* Forecast Strip */}
+      {globalForecast && globalForecast.forecast.best.forecast.length > 0 && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* Global volume mini-chart */}
+          <Card className="bg-card border-border">
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-[10px] font-mono flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Activity className="h-3 w-3 text-primary" />
+                  7-DAY VOLUME FORECAST
+                </span>
+                <Badge variant="outline" className="text-[8px] font-mono">{globalForecast.forecast.best.method}</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-2 pb-2 pt-0">
+              <ResponsiveContainer width="100%" height={100}>
+                <AreaChart data={[
+                  ...globalForecast.series.slice(-14).map(p => ({ date: p.date.slice(5), actual: p.value, forecast: null as number | null, upper: null as number | null })),
+                  ...globalForecast.forecast.best.forecast.map(p => ({ date: p.date.slice(5), actual: null as number | null, forecast: p.value, upper: p.upper })),
+                ]}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                  <XAxis dataKey="date" tick={{ fontSize: 8, fontFamily: 'monospace' }} stroke="hsl(var(--muted-foreground))" interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 8, fontFamily: 'monospace' }} stroke="hsl(var(--muted-foreground))" width={25} />
+                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 10, fontFamily: 'monospace' }} />
+                  <Area type="monotone" dataKey="upper" stroke="none" fill="hsl(var(--primary))" fillOpacity={0.08} />
+                  <Line type="monotone" dataKey="actual" stroke="hsl(var(--foreground))" strokeWidth={1.5} dot={false} />
+                  <Line type="monotone" dataKey="forecast" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="4 2" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Severity forecast mini-chart */}
+          {severityForecast && severityForecast.forecast.best.forecast.length > 0 && (
+            <Card className="bg-card border-border">
+              <CardHeader className="py-2 px-4">
+                <CardTitle className="text-[10px] font-mono flex items-center justify-between">
+                  <span className="flex items-center gap-1.5">
+                    <AlertTriangle className="h-3 w-3 text-amber-500" />
+                    AVG SEVERITY FORECAST
+                  </span>
+                  <Badge variant="outline" className="text-[8px] font-mono">{severityForecast.forecast.best.method}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="px-2 pb-2 pt-0">
+                <ResponsiveContainer width="100%" height={100}>
+                  <AreaChart data={[
+                    ...severityForecast.series.slice(-14).map(p => ({ date: p.date.slice(5), actual: p.value, forecast: null as number | null, upper: null as number | null })),
+                    ...severityForecast.forecast.best.forecast.map(p => ({ date: p.date.slice(5), actual: null as number | null, forecast: p.value, upper: p.upper })),
+                  ]}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis dataKey="date" tick={{ fontSize: 8, fontFamily: 'monospace' }} stroke="hsl(var(--muted-foreground))" interval="preserveStartEnd" />
+                    <YAxis domain={[0, 5]} tick={{ fontSize: 8, fontFamily: 'monospace' }} stroke="hsl(var(--muted-foreground))" width={25} />
+                    <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', fontSize: 10, fontFamily: 'monospace' }} />
+                    <Area type="monotone" dataKey="upper" stroke="none" fill="hsl(var(--destructive))" fillOpacity={0.08} />
+                    <Line type="monotone" dataKey="actual" stroke="hsl(var(--foreground))" strokeWidth={1.5} dot={false} />
+                    <Line type="monotone" dataKey="forecast" stroke="hsl(var(--destructive))" strokeWidth={2} strokeDasharray="4 2" dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Top category forecasts summary */}
+          <Card className="bg-card border-border">
+            <CardHeader className="py-2 px-4">
+              <CardTitle className="text-[10px] font-mono flex items-center gap-1.5">
+                <TrendingUp className="h-3 w-3 text-primary" />
+                CATEGORY OUTLOOK (7D)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-3 pt-0">
+              <div className="space-y-1.5">
+                {categoryForecasts.slice(0, 5).map(cf => {
+                  const fc = cf.forecast.best.forecast;
+                  const recent = cf.series.slice(-7).reduce((s, p) => s + p.value, 0);
+                  const predicted = fc.reduce((s, p) => s + p.value, 0);
+                  const delta = recent > 0 ? ((predicted - recent) / recent) * 100 : 0;
+                  const dir = delta > 10 ? 'rising' : delta < -10 ? 'declining' : 'stable';
+                  return (
+                    <div key={cf.category} className="flex items-center justify-between text-[10px] font-mono">
+                      <span className="text-foreground truncate max-w-[120px]">{cf.category}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">{recent}→{Math.round(predicted)}</span>
+                        {dir === 'rising' && <Badge className="bg-destructive/20 text-destructive text-[8px] px-1 py-0">↑{Math.abs(delta).toFixed(0)}%</Badge>}
+                        {dir === 'declining' && <Badge className="bg-emerald-600/20 text-emerald-400 text-[8px] px-1 py-0">↓{Math.abs(delta).toFixed(0)}%</Badge>}
+                        {dir === 'stable' && <Badge className="bg-muted text-muted-foreground text-[8px] px-1 py-0">→</Badge>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Top Threats Today - Takes 2 columns */}
@@ -682,10 +782,10 @@ export default function DailyBrief() {
             onClick={async () => {
               try {
                 const { data, error } = await supabase.functions.invoke('ingest-incidents');
-                if (error) alert('Error: ' + error.message);
-                else alert('Success: ' + JSON.stringify(data));
+                if (error) console.log('Error: ' + error.message);
+                else console.log('Success: ' + JSON.stringify(data));
               } catch (e: any) {
-                alert('Exception: ' + e.message);
+                console.log('Exception: ' + e.message);
               }
             }}
           >

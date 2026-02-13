@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { mapDatabaseError } from '@/lib/errorMessages';
 import { supabase } from '@/integrations/supabase/client';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Navigate } from 'react-router-dom';
@@ -20,10 +21,17 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Settings, Users, Shield, Loader2, UserPlus, Check, X, Globe, MessageCircle } from 'lucide-react';
+import { Settings, Users, Shield, Loader2, UserPlus, Check, X, Globe, MessageCircle, Copy, Eye, EyeOff } from 'lucide-react';
 import { OsintSourcesManager } from '@/components/dashboard/OsintSourcesManager';
 import { TelegramChannelsManager } from '@/components/dashboard/TelegramChannelsManager';
 
@@ -53,6 +61,9 @@ export default function Admin() {
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(true);
+  const [credentialsDialog, setCredentialsDialog] = useState<{ email: string; password: string; role: string } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -71,17 +82,44 @@ export default function Admin() {
     setRequestsLoading(false);
   };
 
-  const handleRequestAction = async (id: string, status: 'approved' | 'denied') => {
+  const handleApprove = async (id: string) => {
+    setApprovingId(id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke('approve-user', {
+        body: { requestId: id },
+        headers: { Authorization: `Bearer ${session?.access_token}` },
+      });
+
+      if (res.error || res.data?.error) {
+        toast.error(res.data?.error || res.error?.message || 'Approval failed');
+      } else {
+        setCredentialsDialog({
+          email: res.data.email,
+          password: res.data.tempPassword,
+          role: res.data.role,
+        });
+        setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'approved' } : r));
+        fetchUsers();
+        toast.success('Account created');
+      }
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+    setApprovingId(null);
+  };
+
+  const handleDeny = async (id: string) => {
     const { data: { user } } = await supabase.auth.getUser();
     const { error } = await supabase
       .from('access_requests')
-      .update({ status, reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
+      .update({ status: 'denied', reviewed_by: user?.id, reviewed_at: new Date().toISOString() })
       .eq('id', id);
     if (error) {
-      toast.error(error.message);
+      toast.error(mapDatabaseError(error));
     } else {
-      toast.success(`Request ${status}`);
-      setRequests(prev => prev.map(r => r.id === id ? { ...r, status } : r));
+      toast.success('Request denied');
+      setRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'denied' } : r));
     }
   };
 
@@ -133,7 +171,7 @@ export default function Admin() {
       .eq('user_id', userId);
 
     if (error) {
-      toast.error('Failed to update role', { description: error.message });
+      toast.error('Failed to update role', { description: mapDatabaseError(error) });
     } else {
       toast.success('Role updated');
       setUsers(prev => prev.map(u => u.user_id === userId ? { ...u, role: newRole } : u));
@@ -357,23 +395,28 @@ export default function Admin() {
                         {new Date(req.created_at).toLocaleDateString()}
                       </TableCell>
                       <TableCell className="py-2">
-                        {req.status === 'pending' ? (
+                      {req.status === 'pending' ? (
                           <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
-                              title="Approve"
-                              onClick={() => handleRequestAction(req.id, 'approved')}
+                              title="Approve & Create Account"
+                              disabled={approvingId === req.id}
+                              onClick={() => handleApprove(req.id)}
                             >
-                              <Check className="h-3.5 w-3.5 text-primary" />
+                              {approvingId === req.id ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                              ) : (
+                                <Check className="h-3.5 w-3.5 text-primary" />
+                              )}
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon"
                               className="h-6 w-6"
                               title="Deny"
-                              onClick={() => handleRequestAction(req.id, 'denied')}
+                              onClick={() => handleDeny(req.id)}
                             >
                               <X className="h-3.5 w-3.5 text-destructive" />
                             </Button>
@@ -398,6 +441,66 @@ export default function Admin() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Credentials Dialog */}
+      <Dialog open={!!credentialsDialog} onOpenChange={() => { setCredentialsDialog(null); setShowPassword(false); }}>
+        <DialogContent className="bg-card border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-mono flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" />
+              Account Created
+            </DialogTitle>
+            <DialogDescription className="text-[10px] font-mono text-muted-foreground">
+              Share these credentials securely with the user. The password cannot be retrieved again.
+            </DialogDescription>
+          </DialogHeader>
+          {credentialsDialog && (
+            <div className="space-y-4 mt-2">
+              <div className="space-y-1">
+                <label className="text-[9px] font-mono text-muted-foreground uppercase">Email</label>
+                <div className="flex items-center gap-2 bg-secondary rounded px-3 py-2">
+                  <span className="text-xs font-mono text-foreground flex-1">{credentialsDialog.email}</span>
+                  <Button
+                    variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => { navigator.clipboard.writeText(credentialsDialog.email); toast.success('Email copied'); }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-mono text-muted-foreground uppercase">Temporary Password</label>
+                <div className="flex items-center gap-2 bg-secondary rounded px-3 py-2">
+                  <span className="text-xs font-mono text-foreground flex-1">
+                    {showPassword ? credentialsDialog.password : '••••••••••••'}
+                  </span>
+                  <Button
+                    variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  </Button>
+                  <Button
+                    variant="ghost" size="icon" className="h-6 w-6"
+                    onClick={() => { navigator.clipboard.writeText(credentialsDialog.password); toast.success('Password copied'); }}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-mono text-muted-foreground uppercase">Assigned Role</label>
+                <Badge className={`${ROLE_COLORS[credentialsDialog.role] || ROLE_COLORS.viewer} text-[9px] font-mono uppercase`}>
+                  {credentialsDialog.role}
+                </Badge>
+              </div>
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded p-2 text-[9px] font-mono text-amber-300">
+                ⚠ This password is shown only once. The user should change it after first login.
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

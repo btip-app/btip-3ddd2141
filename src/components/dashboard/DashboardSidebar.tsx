@@ -12,6 +12,9 @@ import {
   ClipboardList,
   AlertTriangle,
   Activity,
+  Network,
+  Brain,
+  Database,
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,10 +48,14 @@ const mainNavItems: NavItem[] = [
   { title: 'Alerts', url: '/dashboard/alerts', icon: Bell, roles: ['admin', 'analyst', 'operator'] },
   { title: 'SOCMINT', url: '/dashboard/socmint', icon: BarChart3, roles: ['admin', 'analyst', 'operator'] },
   { title: 'Copilot', url: '/dashboard/copilot', icon: Bot, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Forecast', url: '/dashboard/forecast', icon: Activity, roles: ['admin', 'analyst', 'operator'] },
+  { title: 'Entities', url: '/dashboard/entities', icon: Network, roles: ['admin', 'analyst'] },
+  { title: 'AI Accuracy', url: '/dashboard/accuracy', icon: Brain, roles: ['admin', 'analyst'] },
 ];
 
 const adminNavItems: NavItem[] = [
   { title: 'Escalations', url: '/dashboard/escalations', icon: AlertTriangle, roles: ['admin', 'analyst'] },
+  { title: 'Raw Events', url: '/dashboard/raw-events', icon: Database, roles: ['admin'] },
   { title: 'Activity', url: '/dashboard/activity', icon: Activity, roles: ['admin'] },
   { title: 'Admin', url: '/dashboard/admin', icon: Settings, roles: ['admin'] },
   { title: 'Audit Log', url: '/dashboard/audit-log', icon: ClipboardList, roles: ['admin'] },

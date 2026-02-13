@@ -43,11 +43,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Parse optional body
+    // Parse and validate optional body
     let body: { limit?: number } = {};
     try { body = await req.json(); } catch { /* defaults */ }
 
-    const limit = Math.min(body.limit || 50, 100);
+    const rawLimit = Number(body.limit);
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(Math.floor(rawLimit), 100) : 50;
 
     // Find incidents missing coordinates
     const { data: incidents, error: fetchErr } = await supabase

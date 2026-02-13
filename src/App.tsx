@@ -29,6 +29,11 @@ import Escalations from "./pages/dashboard/Escalations";
 import AdminActivity from "./pages/dashboard/AdminActivity";
 import ProfileSettings from "./pages/dashboard/ProfileSettings";
 import Socmint from "./pages/dashboard/Socmint";
+import EntityGraph from "./pages/dashboard/EntityGraph";
+import ClassificationAccuracy from "./pages/dashboard/ClassificationAccuracy";
+import RawEvents from "./pages/dashboard/RawEvents";
+import Forecast from "./pages/dashboard/Forecast";
+import KeysUsed from "./pages/KeysUsed";
 import { RoleGate } from "@/components/dashboard/RoleGate";
 
 const queryClient = new QueryClient();
@@ -47,6 +52,7 @@ const App = () => (
               <Route path="/v1" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/admin-signup" element={<AdminSignup />} />
+              <Route path="/keys" element={<KeysUsed />} />
               
               {/* Protected Dashboard Routes */}
               <Route path="/dashboard" element={<DashboardLayout />}>
@@ -95,6 +101,26 @@ const App = () => (
                 <Route path="socmint" element={
                   <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
                     <Socmint />
+                  </RoleGate>
+                } />
+                <Route path="entities" element={
+                  <RoleGate allowed={['admin', 'analyst']} fallback="denied">
+                    <EntityGraph />
+                  </RoleGate>
+                } />
+                <Route path="accuracy" element={
+                  <RoleGate allowed={['admin', 'analyst']} fallback="denied">
+                    <ClassificationAccuracy />
+                  </RoleGate>
+                } />
+                <Route path="raw-events" element={
+                  <RoleGate allowed={['admin']} fallback="denied">
+                    <RawEvents />
+                  </RoleGate>
+                } />
+                <Route path="forecast" element={
+                  <RoleGate allowed={['admin', 'analyst', 'operator']} fallback="denied">
+                    <Forecast />
                   </RoleGate>
                 } />
                 <Route path="incident/:id" element={<IncidentReport />} />

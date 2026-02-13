@@ -131,6 +131,142 @@ export type Database = {
         }
         Relationships: []
       }
+      classification_feedback: {
+        Row: {
+          analyst_id: string
+          corrected_category: string | null
+          corrected_confidence: number | null
+          corrected_severity: number | null
+          created_at: string
+          feedback_type: string
+          id: string
+          incident_id: string
+          notes: string | null
+          original_category: string
+          original_confidence: number
+          original_severity: number
+        }
+        Insert: {
+          analyst_id: string
+          corrected_category?: string | null
+          corrected_confidence?: number | null
+          corrected_severity?: number | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          incident_id: string
+          notes?: string | null
+          original_category: string
+          original_confidence: number
+          original_severity: number
+        }
+        Update: {
+          analyst_id?: string
+          corrected_category?: string | null
+          corrected_confidence?: number | null
+          corrected_severity?: number | null
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          incident_id?: string
+          notes?: string | null
+          original_category?: string
+          original_confidence?: number
+          original_severity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_feedback_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      entities: {
+        Row: {
+          canonical_name: string
+          confidence: number
+          country_affiliation: string | null
+          created_at: string
+          description: string | null
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          first_seen: string
+          id: string
+          incident_count: number
+          last_seen: string
+          metadata: Json | null
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          canonical_name: string
+          confidence?: number
+          country_affiliation?: string | null
+          created_at?: string
+          description?: string | null
+          entity_type: Database["public"]["Enums"]["entity_type"]
+          first_seen?: string
+          id?: string
+          incident_count?: number
+          last_seen?: string
+          metadata?: Json | null
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          canonical_name?: string
+          confidence?: number
+          country_affiliation?: string | null
+          created_at?: string
+          description?: string | null
+          entity_type?: Database["public"]["Enums"]["entity_type"]
+          first_seen?: string
+          id?: string
+          incident_count?: number
+          last_seen?: string
+          metadata?: Json | null
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      entity_aliases: {
+        Row: {
+          alias: string
+          alias_normalized: string
+          created_at: string
+          entity_id: string
+          id: string
+          source: string | null
+        }
+        Insert: {
+          alias: string
+          alias_normalized: string
+          created_at?: string
+          entity_id: string
+          id?: string
+          source?: string | null
+        }
+        Update: {
+          alias?: string
+          alias_normalized?: string
+          created_at?: string
+          entity_id?: string
+          id?: string
+          source?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "entity_aliases_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalations: {
         Row: {
           assigned_to: string
@@ -169,6 +305,51 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      incident_entities: {
+        Row: {
+          confidence: number
+          created_at: string
+          entity_id: string
+          extracted_name: string | null
+          id: string
+          incident_id: string
+          role: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          entity_id: string
+          extracted_name?: string | null
+          id?: string
+          incident_id: string
+          role?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          entity_id?: string
+          extracted_name?: string | null
+          id?: string
+          incident_id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "incident_entities_entity_id_fkey"
+            columns: ["entity_id"]
+            isOneToOne: false
+            referencedRelation: "entities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "incident_entities_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       incidents: {
         Row: {
@@ -400,6 +581,59 @@ export type Database = {
           },
         ]
       }
+      raw_events: {
+        Row: {
+          content_hash: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          incident_id: string | null
+          ingested_at: string
+          normalized_at: string | null
+          raw_payload: Json
+          source_label: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+        }
+        Insert: {
+          content_hash?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          incident_id?: string | null
+          ingested_at?: string
+          normalized_at?: string | null
+          raw_payload?: Json
+          source_label?: string | null
+          source_type: string
+          source_url?: string | null
+          status?: string
+        }
+        Update: {
+          content_hash?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          incident_id?: string | null
+          ingested_at?: string
+          normalized_at?: string | null
+          raw_payload?: Json
+          source_label?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "raw_events_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       routes: {
         Row: {
           checkpoints: Json | null
@@ -518,9 +752,20 @@ export type Database = {
         }
         Returns: boolean
       }
+      merge_entities: {
+        Args: { _source_id: string; _target_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "analyst" | "operator" | "viewer" | "executive"
+      entity_type:
+        | "threat_actor"
+        | "organization"
+        | "armed_group"
+        | "government"
+        | "person"
+        | "location_group"
       incident_status: "ai" | "reviewed" | "confirmed"
     }
     CompositeTypes: {
@@ -650,6 +895,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "analyst", "operator", "viewer", "executive"],
+      entity_type: [
+        "threat_actor",
+        "organization",
+        "armed_group",
+        "government",
+        "person",
+        "location_group",
+      ],
       incident_status: ["ai", "reviewed", "confirmed"],
     },
   },

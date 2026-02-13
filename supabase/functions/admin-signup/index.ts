@@ -12,7 +12,34 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { email, password, fullName, adminCode } = await req.json();
+    const rawBody = await req.json();
+    const email = typeof rawBody.email === "string" ? rawBody.email.trim() : "";
+    const password = typeof rawBody.password === "string" ? rawBody.password : "";
+    const fullName = typeof rawBody.fullName === "string" ? rawBody.fullName.trim() : "";
+    const adminCode = typeof rawBody.adminCode === "string" ? rawBody.adminCode : "";
+
+    // Input validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(email) || email.length > 255) {
+      return new Response(JSON.stringify({ error: "Invalid email address" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!password || password.length < 8 || password.length > 128) {
+      return new Response(JSON.stringify({ error: "Password must be 8-128 characters" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!fullName || fullName.length > 100) {
+      return new Response(JSON.stringify({ error: "Full name is required (max 100 chars)" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!adminCode) {
+      return new Response(JSON.stringify({ error: "Admin code is required" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Validate admin code
     const expectedCode = Deno.env.get("ADMIN_SIGNUP_CODE");
@@ -66,7 +93,7 @@ Deno.serve(async (req) => {
     );
   } catch (err) {
     return new Response(
-      JSON.stringify({ error: err.message }),
+      JSON.stringify({ error: "An unexpected error occurred" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

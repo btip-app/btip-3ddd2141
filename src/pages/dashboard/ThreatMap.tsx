@@ -1,40 +1,49 @@
 import { useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIncidents, type Incident } from "@/hooks/useIncidents";
+import { useForecast } from "@/hooks/useForecast";
 import EscalateModal from "@/components/dashboard/EscalateModal";
 import Map, { Marker, NavigationControl, Source, Layer } from "react-map-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import {
-  AlertTriangle,
-  Clock,
-  MapPin,
-  Target,
-  Filter,
-  Crosshair,
-  Loader2,
+  AlertTriangle, Clock, MapPin, Target, Filter, Crosshair, Loader2,
+  TrendingUp, TrendingDown, Minus, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 
 const MAPBOX_TOKEN = "pk.eyJ1IjoiZGljaGlleHBsaWNpdCIsImEiOiJjbWxmM3F3NHIwMG9wM2Vwdnprcjc0cmx1In0.WIfFr47OLll54VZXQy1Vsg";
+
+// ── Region centroids for forecast heatmap ─────────────────────────────────────
+const REGION_CENTROIDS: Record<string, { lat: number; lng: number; label: string }> = {
+  "west-africa": { lat: 8.0, lng: -2.0, label: "West Africa" },
+  "east-africa": { lat: 1.0, lng: 38.0, label: "East Africa" },
+  "north-africa": { lat: 30.0, lng: 10.0, label: "North Africa" },
+  "sub-saharan-africa": { lat: -5.0, lng: 25.0, label: "Sub-Saharan Africa" },
+  "central-africa": { lat: 2.0, lng: 20.0, label: "Central Africa" },
+  "southern-africa": { lat: -25.0, lng: 28.0, label: "Southern Africa" },
+  "middle-east": { lat: 29.0, lng: 47.0, label: "Middle East" },
+  "south-asia": { lat: 22.0, lng: 78.0, label: "South Asia" },
+  "southeast-asia": { lat: 5.0, lng: 110.0, label: "Southeast Asia" },
+  "central-america": { lat: 14.0, lng: -87.0, label: "Central America" },
+  "eastern-europe": { lat: 50.0, lng: 30.0, label: "Eastern Europe" },
+  "south-america": { lat: -15.0, lng: -55.0, label: "South America" },
+  "central-asia": { lat: 42.0, lng: 65.0, label: "Central Asia" },
+  "western-europe": { lat: 48.0, lng: 5.0, label: "Western Europe" },
+  "caribbean": { lat: 18.0, lng: -72.0, label: "Caribbean" },
+  "horn-of-africa": { lat: 8.0, lng: 45.0, label: "Horn of Africa" },
+  "sahel": { lat: 15.0, lng: 0.0, label: "Sahel" },
+};
 
 const THREAT_TYPES = [
   { value: "all", label: "All Threats" },
@@ -55,6 +64,8 @@ const TIME_WINDOWS = [
   { value: "7d", label: "Last 7 Days" },
   { value: "30d", label: "Last 30 Days" },
 ];
+
+type MapMode = "markers" | "heatmap" | "forecast";
 
 function getSeverityColor(severity: number) {
   switch (severity) {
@@ -136,7 +147,8 @@ function ThreatMarker({ marker, onClick }: { marker: MarkerData; onClick: () => 
 export default function ThreatMap() {
   const navigate = useNavigate();
   const { incidents, loading } = useIncidents();
-  const [showHeatmap, setShowHeatmap] = useState(false);
+  const { regionForecasts } = useForecast(60, 7);
+  const [mapMode, setMapMode] = useState<MapMode>("markers");
 
   const [selectedMarker, setSelectedMarker] = useState<MarkerData | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -155,7 +167,7 @@ export default function ThreatMap() {
 
   const allMarkers = useMemo(() => incidents.map(incidentToMarker).filter(Boolean) as MarkerData[], [incidents]);
 
-  // GeoJSON for heatmap layer
+  // GeoJSON for incident heatmap
   const heatmapGeoJSON = useMemo(() => ({
     type: "FeatureCollection" as const,
     features: allMarkers.map(m => ({
@@ -164,6 +176,54 @@ export default function ThreatMap() {
       geometry: { type: "Point" as const, coordinates: [m.lng, m.lat] },
     })),
   }), [allMarkers]);
+
+  // Forecast heatmap: predicted volume per region mapped to centroids
+  const forecastHeatmapData = useMemo(() => {
+    if (!regionForecasts || regionForecasts.length === 0) return [];
+
+    return regionForecasts.map(rf => {
+      const centroid = REGION_CENTROIDS[rf.region];
+      if (!centroid) return null;
+
+      const predicted = rf.forecast.best.forecast;
+      const avgPredicted = predicted.length > 0
+        ? predicted.reduce((s, p) => s + p.value, 0) / predicted.length
+        : 0;
+
+      // Historical avg for comparison
+      const recent = rf.series.slice(-7);
+      const avgRecent = recent.length > 0
+        ? recent.reduce((s, p) => s + p.value, 0) / recent.length
+        : 0;
+
+      const delta = avgRecent > 0 ? ((avgPredicted - avgRecent) / avgRecent) * 100 : 0;
+      const trend = delta > 10 ? 'rising' : delta < -10 ? 'falling' : 'stable';
+
+      return {
+        region: rf.region,
+        label: centroid.label,
+        lat: centroid.lat,
+        lng: centroid.lng,
+        predicted: Math.round(avgPredicted * 10) / 10,
+        recent: Math.round(avgRecent * 10) / 10,
+        delta: Math.round(delta),
+        trend,
+        weight: Math.min(5, Math.max(0.5, avgPredicted)),
+      };
+    }).filter(Boolean) as Array<{
+      region: string; label: string; lat: number; lng: number;
+      predicted: number; recent: number; delta: number; trend: string; weight: number;
+    }>;
+  }, [regionForecasts]);
+
+  const forecastGeoJSON = useMemo(() => ({
+    type: "FeatureCollection" as const,
+    features: forecastHeatmapData.map(d => ({
+      type: "Feature" as const,
+      properties: { weight: d.weight, predicted: d.predicted, delta: d.delta },
+      geometry: { type: "Point" as const, coordinates: [d.lng, d.lat] },
+    })),
+  }), [forecastHeatmapData]);
 
   const filteredMarkers = useMemo(() => {
     const now = new Date();
@@ -188,6 +248,18 @@ export default function ThreatMap() {
     setSelectedMarker(marker);
     setDrawerOpen(true);
   }, []);
+
+  const cycleMapMode = () => {
+    const modes: MapMode[] = ["markers", "heatmap", "forecast"];
+    const idx = modes.indexOf(mapMode);
+    setMapMode(modes[(idx + 1) % modes.length]);
+  };
+
+  const modeLabel: Record<MapMode, string> = {
+    markers: "MARKERS",
+    heatmap: "HEATMAP",
+    forecast: "FORECAST",
+  };
 
   if (loading) {
     return (
@@ -271,12 +343,13 @@ export default function ThreatMap() {
 
           <div className="ml-auto flex items-center gap-2">
             <Button
-              variant={showHeatmap ? "default" : "outline"}
+              variant={mapMode !== "markers" ? "default" : "outline"}
               size="sm"
               className="text-[10px] font-mono h-7"
-              onClick={() => setShowHeatmap(!showHeatmap)}
+              onClick={cycleMapMode}
             >
-              {showHeatmap ? "MARKERS" : "HEATMAP"}
+              {mapMode === "forecast" && <Sparkles className="h-3 w-3 mr-1" />}
+              {modeLabel[mapMode]}
             </Button>
             <Badge variant="outline" className="text-[10px] font-mono">
               <Crosshair className="h-3 w-3 mr-1" />
@@ -286,53 +359,143 @@ export default function ThreatMap() {
         </div>
       </Card>
 
-      {/* Map */}
-      <div className="flex-1 rounded-lg overflow-hidden border border-border">
-        <Map
-          {...viewState}
-          onMove={evt => setViewState(evt.viewState)}
-          mapboxAccessToken={MAPBOX_TOKEN}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
-          style={{ width: '100%', height: '100%' }}
-        >
-          <NavigationControl position="top-left" />
-          {showHeatmap ? (
-            <Source type="geojson" data={heatmapGeoJSON}>
-              <Layer
-                id="incident-heat"
-                type="heatmap"
-                paint={{
-                  'heatmap-weight': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.2, 3, 0.5, 5, 1],
-                  'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
-                  'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 9, 40],
-                  'heatmap-opacity': 0.7,
-                  'heatmap-color': [
-                    'interpolate', ['linear'], ['heatmap-density'],
-                    0, 'rgba(0,0,0,0)',
-                    0.2, 'rgba(0,128,255,0.4)',
-                    0.4, 'rgba(0,200,150,0.5)',
-                    0.6, 'rgba(255,200,0,0.6)',
-                    0.8, 'rgba(255,100,0,0.8)',
-                    1, 'rgba(255,0,0,0.9)',
-                  ],
-                }}
-              />
-            </Source>
-          ) : (
-            filteredMarkers.map(marker => (
-              <ThreatMarker key={marker.id} marker={marker} onClick={() => handleMarkerClick(marker)} />
-            ))
-          )}
-        </Map>
+      {/* Map + Forecast sidebar */}
+      <div className="flex-1 flex gap-3 min-h-0">
+        <div className={`rounded-lg overflow-hidden border border-border ${mapMode === "forecast" ? "flex-1" : "w-full"}`}>
+          <Map
+            {...viewState}
+            onMove={evt => setViewState(evt.viewState)}
+            mapboxAccessToken={MAPBOX_TOKEN}
+            mapStyle="mapbox://styles/mapbox/dark-v11"
+            style={{ width: '100%', height: '100%' }}
+          >
+            <NavigationControl position="top-left" />
+
+            {mapMode === "heatmap" && (
+              <Source type="geojson" data={heatmapGeoJSON}>
+                <Layer
+                  id="incident-heat"
+                  type="heatmap"
+                  paint={{
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'severity'], 1, 0.2, 3, 0.5, 5, 1],
+                    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 15, 9, 40],
+                    'heatmap-opacity': 0.7,
+                    'heatmap-color': [
+                      'interpolate', ['linear'], ['heatmap-density'],
+                      0, 'rgba(0,0,0,0)',
+                      0.2, 'rgba(0,128,255,0.4)',
+                      0.4, 'rgba(0,200,150,0.5)',
+                      0.6, 'rgba(255,200,0,0.6)',
+                      0.8, 'rgba(255,100,0,0.8)',
+                      1, 'rgba(255,0,0,0.9)',
+                    ],
+                  }}
+                />
+              </Source>
+            )}
+
+            {mapMode === "forecast" && (
+              <Source type="geojson" data={forecastGeoJSON}>
+                <Layer
+                  id="forecast-heat"
+                  type="heatmap"
+                  paint={{
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0.1, 2, 0.5, 5, 1],
+                    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 0.8, 6, 2.5],
+                    'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 40, 6, 80],
+                    'heatmap-opacity': 0.65,
+                    'heatmap-color': [
+                      'interpolate', ['linear'], ['heatmap-density'],
+                      0, 'rgba(0,0,0,0)',
+                      0.15, 'rgba(100,50,255,0.3)',
+                      0.35, 'rgba(180,50,200,0.45)',
+                      0.55, 'rgba(255,100,50,0.6)',
+                      0.75, 'rgba(255,180,0,0.75)',
+                      1, 'rgba(255,50,50,0.9)',
+                    ],
+                  }}
+                />
+              </Source>
+            )}
+
+            {mapMode === "markers" && (
+              filteredMarkers.map(marker => (
+                <ThreatMarker key={marker.id} marker={marker} onClick={() => handleMarkerClick(marker)} />
+              ))
+            )}
+          </Map>
+        </div>
+
+        {/* Forecast sidebar panel */}
+        {mapMode === "forecast" && forecastHeatmapData.length > 0 && (
+          <Card className="w-[280px] shrink-0 overflow-y-auto bg-card border-border">
+            <CardHeader className="pb-2 pt-3 px-3">
+              <CardTitle className="text-[11px] font-mono flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                Predicted Hotspots (7d)
+              </CardTitle>
+              <p className="text-[9px] font-mono text-muted-foreground">
+                Forecast avg daily incidents by region
+              </p>
+            </CardHeader>
+            <CardContent className="px-3 pb-3 space-y-1.5">
+              {forecastHeatmapData
+                .sort((a, b) => b.predicted - a.predicted)
+                .map(d => {
+                  const TrendIcon = d.trend === 'rising' ? TrendingUp : d.trend === 'falling' ? TrendingDown : Minus;
+                  const trendColor = d.trend === 'rising' ? 'text-destructive' : d.trend === 'falling' ? 'text-emerald-400' : 'text-muted-foreground';
+                  const riskLevel = d.predicted >= 3 ? 'HIGH' : d.predicted >= 1.5 ? 'MED' : 'LOW';
+                  const riskClass = d.predicted >= 3 ? 'bg-destructive/20 text-destructive' : d.predicted >= 1.5 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400';
+
+                  return (
+                    <div
+                      key={d.region}
+                      className="flex items-center gap-2 p-2 rounded bg-secondary/30 border border-border/50 hover:border-border transition-colors cursor-default"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[10px] font-mono font-medium truncate">{d.label}</p>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[9px] font-mono text-muted-foreground">
+                            {d.predicted}/day
+                          </span>
+                          <TrendIcon className={`h-3 w-3 ${trendColor}`} />
+                          <span className={`text-[9px] font-mono ${trendColor}`}>
+                            {d.delta > 0 ? '+' : ''}{d.delta}%
+                          </span>
+                        </div>
+                      </div>
+                      <Badge className={`text-[8px] font-mono ${riskClass}`}>
+                        {riskLevel}
+                      </Badge>
+                    </div>
+                  );
+                })}
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Legend */}
       <div className="mt-2 flex items-center gap-4 text-[10px] font-mono text-muted-foreground">
-        <span>SEVERITY:</span>
-        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-destructive" /><span>Critical</span></div>
-        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-orange-600" /><span>High</span></div>
-        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-amber-600" /><span>Moderate</span></div>
-        <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-yellow-600" /><span>Low</span></div>
+        {mapMode === "forecast" ? (
+          <>
+            <span>FORECAST RISK:</span>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ background: 'rgba(255,50,50,0.9)' }} /><span>Critical</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ background: 'rgba(255,180,0,0.75)' }} /><span>High</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ background: 'rgba(180,50,200,0.45)' }} /><span>Moderate</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full" style={{ background: 'rgba(100,50,255,0.3)' }} /><span>Low</span></div>
+            <Badge variant="outline" className="text-[9px] font-mono ml-auto"><Sparkles className="h-3 w-3 mr-1" />Statistical forecast • 7-day horizon</Badge>
+          </>
+        ) : (
+          <>
+            <span>SEVERITY:</span>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-destructive" /><span>Critical</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-orange-600" /><span>High</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-amber-600" /><span>Moderate</span></div>
+            <div className="flex items-center gap-1"><div className="w-3 h-3 rounded-full bg-yellow-600" /><span>Low</span></div>
+          </>
+        )}
       </div>
 
       {/* Incident Detail Sheet */}

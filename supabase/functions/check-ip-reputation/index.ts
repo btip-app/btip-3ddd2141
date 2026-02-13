@@ -56,14 +56,24 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { ip, ips } = body as { ip?: string; ips?: string[] };
+    let body: { ip?: string; ips?: string[] } = {};
+    try { body = await req.json(); } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const { ip, ips } = body;
 
-    const ipList = ips || (ip ? [ip] : []);
+    // Validate IP format
+    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+    const ipList = (ips || (ip ? [ip] : []))
+      .filter(addr => typeof addr === "string" && ipRegex.test(addr.trim()))
+      .map(addr => addr.trim())
+      .slice(0, 10);
+
     if (ipList.length === 0) {
-      return new Response(JSON.stringify({ error: "Provide 'ip' or 'ips' in request body" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: "Provide valid IPv4 addresses in 'ip' or 'ips'" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
