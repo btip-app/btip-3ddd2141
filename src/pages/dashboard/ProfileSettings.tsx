@@ -9,8 +9,81 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
-import { User, Building2, MapPin, Save, X, Plus } from 'lucide-react';
+import { User, Building2, MapPin, Save, X, Plus, KeyRound, Loader2 } from 'lucide-react';
 import { AddRegionDialog } from '@/components/dashboard/AddRegionDialog';
+
+function ChangePasswordCard() {
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [changingPw, setChangingPw] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+    setChangingPw(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      toast.error('Failed to change password', { description: error.message });
+    } else {
+      toast.success('Password updated successfully');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    }
+    setChangingPw(false);
+  };
+
+  return (
+    <Card className="bg-card border-border">
+      <CardHeader className="py-3 px-4">
+        <CardTitle className="text-sm font-mono flex items-center gap-2">
+          <KeyRound className="h-4 w-4 text-muted-foreground" />
+          CHANGE PASSWORD
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="px-4 pb-4 pt-0 space-y-4">
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono text-muted-foreground uppercase">New Password</label>
+          <Input
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="h-8 text-xs font-mono bg-secondary border-border max-w-sm"
+            placeholder="Min 8 characters"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label className="text-[10px] font-mono text-muted-foreground uppercase">Confirm New Password</label>
+          <Input
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="h-8 text-xs font-mono bg-secondary border-border max-w-sm"
+            placeholder="Re-enter new password"
+          />
+        </div>
+        <div className="pt-2">
+          <Button
+            size="sm"
+            className="text-xs font-mono"
+            onClick={handleChangePassword}
+            disabled={changingPw || !newPassword || !confirmPassword}
+          >
+            {changingPw ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <KeyRound className="h-3 w-3 mr-1" />}
+            {changingPw ? 'Updating...' : 'Update Password'}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function ProfileSettings() {
   const { user } = useAuth();
@@ -161,6 +234,9 @@ export default function ProfileSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Change Password */}
+      <ChangePasswordCard />
 
       {/* Monitored Regions */}
       <Card className="bg-card border-border">
