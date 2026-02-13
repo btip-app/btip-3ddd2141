@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { mapDatabaseError } from "@/lib/errorMessages";
 import { useIncidents } from "@/hooks/useIncidents";
 import { useAssets, type Asset, type RouteData } from "@/hooks/useAssets";
 import { useAuth } from "@/contexts/AuthContext";
@@ -303,7 +304,7 @@ export default function Assets() {
       country: newCountry || null,
       subdivision: newSubdivision || null,
     });
-    if (error) { toast.error('Failed to add asset', { description: error.message }); return; }
+    if (error) { toast.error('Failed to add asset', { description: mapDatabaseError(error) }); return; }
     toast.success('Asset added');
     setNewName(""); setNewType("office"); setNewLat(""); setNewLng(""); setNewTags("");
     setNewRegion(""); setNewCountry(""); setNewSubdivision("");
@@ -327,7 +328,7 @@ export default function Assets() {
       country: newRouteCountry || null,
       subdivision: newRouteSubdivision || null,
     });
-    if (error) { toast.error('Failed to add route', { description: error.message }); return; }
+    if (error) { toast.error('Failed to add route', { description: mapDatabaseError(error) }); return; }
     toast.success('Route added');
     setNewRouteName(""); setNewRouteStartLabel(""); setNewRouteStartLat(""); setNewRouteStartLng("");
     setNewRouteEndLabel(""); setNewRouteEndLat(""); setNewRouteEndLng(""); setNewRouteTags("");

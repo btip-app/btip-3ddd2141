@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { mapDatabaseError } from "@/lib/errorMessages";
 import { Plus, Trash2, MessageCircle, Loader2 } from "lucide-react";
 
 interface TelegramChannel {
@@ -53,7 +54,7 @@ export function TelegramChannelsManager() {
       created_by: user?.id || "",
     });
     if (error) {
-      toast.error(error.message.includes("duplicate") ? "Channel already added" : error.message);
+      toast.error(mapDatabaseError(error));
     } else {
       toast.success("Channel added");
       setNewUsername("");
@@ -68,13 +69,13 @@ export function TelegramChannelsManager() {
       .from("telegram_channels")
       .update({ enabled })
       .eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mapDatabaseError(error));
     else setChannels(prev => prev.map(c => c.id === id ? { ...c, enabled } : c));
   }
 
   async function handleDelete(id: string) {
     const { error } = await supabase.from("telegram_channels").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mapDatabaseError(error));
     else {
       setChannels(prev => prev.filter(c => c.id !== id));
       toast.success("Channel removed");

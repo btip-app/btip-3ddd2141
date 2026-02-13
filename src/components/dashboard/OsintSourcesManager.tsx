@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { mapDatabaseError } from "@/lib/errorMessages";
 import { Plus, Trash2, Globe, Loader2 } from "lucide-react";
 
 interface OsintSource {
@@ -54,7 +55,7 @@ export function OsintSourcesManager() {
       created_by: user?.id || "",
     });
     if (error) {
-      toast.error(error.message);
+      toast.error(mapDatabaseError(error));
     } else {
       toast.success("Source added");
       setNewUrl("");
@@ -69,13 +70,13 @@ export function OsintSourcesManager() {
       .from("osint_sources")
       .update({ enabled })
       .eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mapDatabaseError(error));
     else setSources(prev => prev.map(s => s.id === id ? { ...s, enabled } : s));
   }
 
   async function handleDelete(id: string) {
     const { error } = await supabase.from("osint_sources").delete().eq("id", id);
-    if (error) toast.error(error.message);
+    if (error) toast.error(mapDatabaseError(error));
     else {
       setSources(prev => prev.filter(s => s.id !== id));
       toast.success("Source removed");
