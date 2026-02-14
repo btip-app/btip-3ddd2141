@@ -71,11 +71,10 @@ export default function LandingNav() {
   return (
     <>
       <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
-          scrolled || mobileOpen
+        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${scrolled || mobileOpen
             ? "bg-background/90 backdrop-blur-md border-b border-border shadow-sm"
             : "bg-transparent border-b border-transparent"
-        }`}
+          }`}
       >
         <div className="container mx-auto px-6 h-12 flex items-center justify-between">
           <a
@@ -85,7 +84,7 @@ export default function LandingNav() {
           >
             <Shield className="h-4 w-4 text-primary" />
             <span className="font-mono font-bold text-sm acronym text-foreground">
-              BTIP
+              Bastion Intelligence
             </span>
           </a>
 
@@ -99,11 +98,10 @@ export default function LandingNav() {
                   key={item.href}
                   href={item.href}
                   onClick={(e) => handleAnchorClick(e, item.href)}
-                  className={`text-[11px] font-mono uppercase tracking-wider transition-colors duration-300 cursor-pointer ${
-                    isActive
+                  className={`text-[11px] font-mono uppercase tracking-wider transition-colors duration-300 cursor-pointer ${isActive
                       ? "text-primary font-semibold"
                       : "text-muted-foreground hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   {item.label}
                 </a>
@@ -139,9 +137,8 @@ export default function LandingNav() {
 
       {/* Mobile overlay */}
       <div
-        className={`fixed inset-0 z-40 bg-background/95 backdrop-blur-lg flex flex-col items-center justify-center gap-6 transition-all duration-300 md:hidden ${
-          mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
-        }`}
+        className={`fixed inset-0 z-40 bg-background/95 backdrop-blur-lg flex flex-col items-center justify-center gap-6 transition-all duration-300 md:hidden ${mobileOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
         style={{ paddingTop: "3rem" }}
       >
         {NAV_ITEMS.map((item) => {
@@ -152,9 +149,8 @@ export default function LandingNav() {
               key={item.href}
               href={item.href}
               onClick={(e) => handleAnchorClick(e, item.href)}
-              className={`text-lg font-mono uppercase tracking-wider transition-colors duration-300 ${
-                isActive ? "text-primary font-semibold" : "text-muted-foreground"
-              }`}
+              className={`text-lg font-mono uppercase tracking-wider transition-colors duration-300 ${isActive ? "text-primary font-semibold" : "text-muted-foreground"
+                }`}
             >
               {item.label}
             </a>
