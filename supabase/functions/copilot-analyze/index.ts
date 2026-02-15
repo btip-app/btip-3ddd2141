@@ -127,9 +127,9 @@ AVG SEVERITY (last 7d): ${last7d.length > 0 ? (last7d.reduce((s: number, i: any)
 AVG SEVERITY (prev 7d): ${prev7d.length > 0 ? (prev7d.reduce((s: number, i: any) => s + i.severity, 0) / prev7d.length).toFixed(1) : "N/A"}
 `;
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Gemini API key not configured in Supabase secrets" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "Lovable AI key not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -172,39 +172,40 @@ GUIDELINES:
 - The forecast.direction should reflect whether you expect things to get worse, stay the same, or improve
 - If no incidents match the query, say so honestly and set riskLevel to "low"`;
 
-    console.log("Calling Gemini API with streaming...");
+    console.log("Calling Lovable AI proxy with streaming...");
 
-    // CHANGED: Call Google Gemini Direct API (gemini-2.5-flash)
-    const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key=${GEMINI_API_KEY}`, {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify({
-        contents: [
-          { role: "user", parts: [{ text: `System Instruction: ${systemPrompt}` }] },
+        model: "google/gemini-2.5-flash",
+        stream: true,
+        temperature: 0.3,
+        top_p: 0.8,
+        messages: [
+          { role: "system", content: systemPrompt },
           ...conversationHistory.map(m => ({
-            role: m.role === "user" ? "user" : "model", // Map roles for Gemini
-            parts: [{ text: m.content }]
+            role: m.role === "user" ? "user" : "assistant",
+            content: m.content,
           })),
-          { role: "user", parts: [{ text: query }] }
+          { role: "user", content: query },
         ],
-        generationConfig: {
-          temperature: 0.3,
-          topP: 0.8,
-          topK: 40
-        }
       }),
     });
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error(`Gemini API error [${aiResponse.status}]:`, errText);
+      console.error(`Lovable AI error [${aiResponse.status}]:`, errText);
       return new Response(JSON.stringify({ error: `AI analysis failed: ${aiResponse.status}` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Stream the SSE response through to the client
+    // Stream the OpenAI-compatible SSE response through to the client
     const reader = aiResponse.body!.getReader();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -227,9 +228,9 @@ GUIDELINES:
               if (!jsonStr || jsonStr === "[DONE]") continue;
 
               try {
-                // Parse Gemini SSE format
+                // Parse OpenAI-compatible SSE format
                 const data = JSON.parse(jsonStr);
-                const delta = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                const delta = data.choices?.[0]?.delta?.content;
 
                 if (delta) {
                   fullContent += delta;
