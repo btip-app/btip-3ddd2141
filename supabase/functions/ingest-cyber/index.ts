@@ -18,22 +18,39 @@ interface CyberIncident {
   status: "ai"; section: string; analyst: string;
 }
 
+const AFRICAN_COUNTRY_CODES = new Set([
+  "DZ", "AO", "BJ", "BW", "BF", "BI", "CV", "CM", "CF", "TD", "KM", "CG", "CD", "DJ", "EG",
+  "GQ", "ER", "SZ", "ET", "GA", "GM", "GH", "GN", "GW", "CI", "KE", "LS", "LR", "LY", "MG",
+  "MW", "ML", "MR", "MU", "MA", "MZ", "NA", "NE", "NG", "RW", "ST", "SN", "SC", "SL", "SO",
+  "ZA", "SS", "SD", "TZ", "TG", "TN", "UG", "ZM", "ZW",
+]);
+
 function countryToRegion(cc: string | null): string {
   if (!cc) return "global";
   const map: Record<string, string> = {
     NG: "west-africa", GH: "west-africa", SN: "west-africa", CI: "west-africa",
+    ML: "west-africa", BF: "west-africa", NE: "west-africa", BJ: "west-africa",
+    TG: "west-africa", GN: "west-africa", SL: "west-africa", LR: "west-africa",
+    GM: "west-africa", GW: "west-africa", CV: "west-africa", MR: "west-africa",
     KE: "east-africa", TZ: "east-africa", UG: "east-africa", ET: "east-africa",
-    ZA: "southern-africa", EG: "north-africa", MA: "north-africa",
-    US: "north-america", CA: "north-america", MX: "central-america",
-    BR: "south-america", AR: "south-america", CO: "south-america",
-    GB: "western-europe", DE: "western-europe", FR: "western-europe",
-    RU: "eastern-europe", UA: "eastern-europe", PL: "eastern-europe",
-    CN: "east-asia", JP: "east-asia", KR: "east-asia",
-    IN: "south-asia", PK: "south-asia", BD: "south-asia",
-    SA: "middle-east", AE: "middle-east", IR: "middle-east", IQ: "middle-east",
-    AU: "oceania", ID: "southeast-asia", PH: "southeast-asia", TH: "southeast-asia",
+    RW: "east-africa", BI: "east-africa", SO: "east-africa", DJ: "east-africa",
+    ER: "east-africa", SS: "east-africa", SD: "east-africa",
+    ZA: "southern-africa", BW: "southern-africa", NA: "southern-africa",
+    ZM: "southern-africa", ZW: "southern-africa", MZ: "southern-africa",
+    MW: "southern-africa", LS: "southern-africa", SZ: "southern-africa",
+    MG: "southern-africa", MU: "southern-africa", SC: "southern-africa",
+    EG: "north-africa", MA: "north-africa", TN: "north-africa",
+    LY: "north-africa", DZ: "north-africa",
+    CM: "central-africa", CF: "central-africa", TD: "central-africa",
+    CG: "central-africa", CD: "central-africa", GA: "central-africa",
+    GQ: "central-africa", AO: "central-africa", ST: "central-africa",
   };
   return map[cc.toUpperCase()] || "global";
+}
+
+function isAfricanRegion(region: string): boolean {
+  const AFRICAN_REGIONS = ["west-africa", "east-africa", "southern-africa", "north-africa", "central-africa", "sub-saharan-africa", "horn-of-africa", "sahel"];
+  return AFRICAN_REGIONS.includes(region);
 }
 
 function abuseScoreToSeverity(s: number): number {
@@ -118,8 +135,11 @@ Deno.serve(async (req) => {
     console.log("Cyber threat ingestion started");
 
     const [abuseResults, otxResults] = await Promise.all([fetchAbuseIPDB(), fetchAlienVaultOTX()]);
-    const allResults = [...abuseResults, ...otxResults];
-    console.log(`Fetched ${abuseResults.length} AbuseIPDB, ${otxResults.length} OTX`);
+    // Filter to Africa-only threats
+    const africaAbuse = abuseResults.filter(r => isAfricanRegion(r.incident.region));
+    const africaOtx = otxResults.filter(r => isAfricanRegion(r.incident.region));
+    const allResults = [...africaAbuse, ...africaOtx];
+    console.log(`Fetched ${abuseResults.length} AbuseIPDB (${africaAbuse.length} African), ${otxResults.length} OTX (${africaOtx.length} African)`);
 
     if (allResults.length === 0) return new Response(JSON.stringify({ success: true, inserted: 0 }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 

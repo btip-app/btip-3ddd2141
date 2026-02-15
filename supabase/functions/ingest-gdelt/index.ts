@@ -116,9 +116,9 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_API_KEY) {
-      return new Response(JSON.stringify({ error: "Gemini API key not configured" }), {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify({ error: "Lovable API key not configured" }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -134,45 +134,29 @@ Deno.serve(async (req) => {
     ).join("\n\n---\n\n");
 
     const extractionPrompt = `Extract distinct security incidents (conflict, crime, terrorism, unrest) from these GDELT articles.
+IMPORTANT: Only extract incidents that occurred in AFRICAN countries. Discard any incidents from non-African countries (e.g. Russia, Ukraine, USA, Europe, Asia, etc.).
+Use one of these region values: west-africa, east-africa, north-africa, southern-africa, central-africa, sub-saharan-africa, horn-of-africa, sahel.
+
 ARTICLES:
 ${articlesText}
 
-Return a list of objects in JSON format.`;
+Return a JSON array of objects with keys: title, location, region, country, category, severity (1-5), confidence (0-100), summary, datetime, sources (array of URLs), lat, lng.`;
 
-    // NATIVE GEMINI API (JSON MODE)
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    const aiRes = await fetch(geminiUrl, {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: extractionPrompt }] }],
-        generationConfig: {
-          temperature: 0.1,
-          maxOutputTokens: 8192,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "ARRAY",
-            items: {
-              type: "OBJECT",
-              properties: {
-                title: { type: "STRING" },
-                location: { type: "STRING" },
-                region: { type: "STRING" },
-                country: { type: "STRING" },
-                category: { type: "STRING" },
-                severity: { type: "INTEGER" },
-                confidence: { type: "INTEGER" },
-                summary: { type: "STRING" },
-                datetime: { type: "STRING" },
-                sources: { type: "ARRAY", items: { type: "STRING" } },
-                lat: { type: "NUMBER" },
-                lng: { type: "NUMBER" }
-              },
-              required: ["title", "location", "category", "datetime"]
-            }
-          }
-        }
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: "You extract structured security incident data from news articles. Only include incidents from African countries. Return valid JSON array." },
+          { role: "user", content: extractionPrompt },
+        ],
+        temperature: 0.1,
+        max_tokens: 8192,
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -184,11 +168,12 @@ Return a list of objects in JSON format.`;
     }
 
     const aiData = await aiRes.json();
-    const rawContent = aiData.candidates?.[0]?.content?.parts?.[0]?.text || "[]";
+    const rawContent = aiData.choices?.[0]?.message?.content || "[]";
 
     let extractedIncidents: any[];
     try {
-      extractedIncidents = JSON.parse(rawContent);
+      const parsed = JSON.parse(rawContent);
+      extractedIncidents = Array.isArray(parsed) ? parsed : (parsed.incidents || parsed.data || []);
     } catch (e) {
       return new Response(JSON.stringify({
         error: "JSON Parse Failed",
@@ -198,7 +183,9 @@ Return a list of objects in JSON format.`;
       });
     }
 
-    if (!Array.isArray(extractedIncidents)) extractedIncidents = [];
+    // Post-filter: ensure only African regions made it through
+    const AFRICAN_REGIONS = ["west-africa", "east-africa", "southern-africa", "north-africa", "central-africa", "sub-saharan-africa", "horn-of-africa", "sahel"];
+    extractedIncidents = extractedIncidents.filter((inc: any) => AFRICAN_REGIONS.includes(inc.region));
 
     console.log(`AI extracted ${extractedIncidents.length} incidents from GDELT`);
 
