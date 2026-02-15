@@ -28,7 +28,7 @@ export default function DashboardLayout() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Shield className="h-6 w-6 text-primary" />
+        <img src="/logo-full.png" alt="Bastion Intelligence" className="h-8 w-auto mb-2" />
         <div className="text-muted-foreground text-[10px] font-mono uppercase tracking-wider">
           Initializing secure session
         </div>

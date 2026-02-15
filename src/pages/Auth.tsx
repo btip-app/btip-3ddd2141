@@ -104,14 +104,14 @@ export default function Auth() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-
-            <span className="text-2xl font-mono font-bold tracking-tight">BTIP</span>
+            <img src="/logo-full.png" alt="Bastion Intelligence" className="h-12 w-auto" />
+            {/* <span className="text-2xl font-mono font-bold tracking-tight">Bastion Intelligence</span> */}
           </div>
           <h1 className="text-lg font-mono font-semibold text-foreground">
             {mode === "login" ? "Authenticate" : "Request Access"}
           </h1>
           <p className="text-[10px] font-mono text-muted-foreground mt-1 uppercase tracking-wider">
-            Bastion Threat Intelligence Platform
+            Bastion Intelligence Platform
           </p>
         </div>
 

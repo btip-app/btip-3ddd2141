@@ -6,15 +6,15 @@ const Header = () => {
       <div className="container mx-auto flex h-16 items-center justify-between px-6">
         <Link to="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded bg-primary" />
-          <span className="text-xl font-bold acronym">BTIP</span>
+          <span className="text-xl font-bold">Bastion Intelligence</span>
         </Link>
-        
+
         <nav className="hidden md:flex items-center gap-8">
           <a href="#features" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Features</a>
-          <a href="#problem" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Why BTIP</a>
+          <a href="#problem" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Why Bastion</a>
           <a href="#personas" className="text-sm text-muted-foreground hover:text-foreground transition-colors">Use Cases</a>
         </nav>
-        
+
         <div className="flex items-center gap-3">
           <Link to="/auth" className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
             Login

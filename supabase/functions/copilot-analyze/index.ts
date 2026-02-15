@@ -56,7 +56,7 @@ serve(async (req) => {
 
     console.log(`Copilot query from user ${user.id}: ${query}`);
 
-    // Fetch recent incidents for context (expanded window for trend analysis)
+    // Fetch recent incidents for context
     const { data: incidents, error: incError } = await supabase
       .from("incidents")
       .select("id, title, location, severity, confidence, category, status, datetime, region, country, subdivision, summary, sources")
@@ -77,7 +77,6 @@ serve(async (req) => {
       )
       .join("\n");
 
-    // Compute trend statistics for predictive context
     const now = Date.now();
     const _7d = 7 * 86400000;
     const _14d = 14 * 86400000;
@@ -90,7 +89,6 @@ serve(async (req) => {
     });
     const last30d = allIncidents.filter((i: any) => now - new Date(i.datetime).getTime() < _30d);
 
-    // Category breakdown
     const catCounts: Record<string, { last7: number; prev7: number; last30: number }> = {};
     for (const i of allIncidents as any[]) {
       const cat = i.category;
@@ -101,7 +99,6 @@ serve(async (req) => {
       if (age < _30d) catCounts[cat].last30++;
     }
 
-    // Region breakdown
     const regionCounts: Record<string, { last7: number; prev7: number }> = {};
     for (const i of allIncidents as any[]) {
       const region = i.country || i.region || "unknown";
@@ -127,9 +124,9 @@ AVG SEVERITY (last 7d): ${last7d.length > 0 ? (last7d.reduce((s: number, i: any)
 AVG SEVERITY (prev 7d): ${prev7d.length > 0 ? (prev7d.reduce((s: number, i: any) => s + i.severity, 0) / prev7d.length).toFixed(1) : "N/A"}
 `;
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "Lovable AI key not configured" }), {
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) {
+      return new Response(JSON.stringify({ error: "Gemini AI key not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -167,21 +164,20 @@ GUIDELINES:
 - Provide 3-6 evidence points citing specific incidents
 - Give 3-5 actionable security recommendations
 - Link the most relevant incidents (up to 5)
-- PREDICTIVE ANALYSIS: Use the trend data to project future risk. Look at week-over-week changes, category trends, and regional patterns to forecast threat direction
-- If a category or region shows a RISING trend, factor that into a higher risk projection
-- The forecast.direction should reflect whether you expect things to get worse, stay the same, or improve
+- PREDICTIVE ANALYSIS: Use the trend data to project future risk.
 - If no incidents match the query, say so honestly and set riskLevel to "low"`;
 
-    console.log("Calling Lovable AI proxy with streaming...");
+    console.log("Calling Gemini AI API with streaming...");
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Using the Google Gemini API (OpenAI-compatible endpoint)
+    const aiResponse = await fetch("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${GEMINI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "gemini-2.5-flash", // Using current stable Gemini model
         stream: true,
         temperature: 0.3,
         top_p: 0.8,
@@ -198,14 +194,13 @@ GUIDELINES:
 
     if (!aiResponse.ok) {
       const errText = await aiResponse.text();
-      console.error(`Lovable AI error [${aiResponse.status}]:`, errText);
+      console.error(`Gemini AI error [${aiResponse.status}]:`, errText);
       return new Response(JSON.stringify({ error: `AI analysis failed: ${aiResponse.status}` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Stream the OpenAI-compatible SSE response through to the client
     const reader = aiResponse.body!.getReader();
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
@@ -228,7 +223,6 @@ GUIDELINES:
               if (!jsonStr || jsonStr === "[DONE]") continue;
 
               try {
-                // Parse OpenAI-compatible SSE format
                 const data = JSON.parse(jsonStr);
                 const delta = data.choices?.[0]?.delta?.content;
 
@@ -237,12 +231,11 @@ GUIDELINES:
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", delta })}\n\n`));
                 }
               } catch (parseErr) {
-                // Skip unparseable SSE lines
+                // Skip unparseable lines
               }
             }
           }
 
-          // If we exit the loop, finalize
           console.log("Full AI content length:", fullContent.length);
           const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
           const cleanedJson = jsonMatch ? jsonMatch[0] : null;
@@ -251,20 +244,15 @@ GUIDELINES:
           try {
             parsed = cleanedJson ? JSON.parse(cleanedJson) : null;
           } catch {
-            console.error("Failed to parse final AI JSON:", cleanedJson?.slice(0, 300));
+            console.error("Failed to parse final Gemini AI JSON.");
             parsed = {
               riskLevel: "medium",
               confidence: 50,
-              summary: fullContent.slice(0, 500),
+              summary: "Analysis incomplete due to formatting.",
               evidence: ["AI response could not be structured"],
               recommendations: ["Review raw analysis output"],
               linkedIncidents: [],
-              forecast: {
-                direction: "stable",
-                horizon: "unknown",
-                rationale: "Analysis structure failed",
-                riskProjection: "medium"
-              }
+              forecast: { direction: "stable", horizon: "unknown", rationale: "Structure failure", riskProjection: "medium" }
             };
           }
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "complete", parsed })}\n\n`));
@@ -275,8 +263,6 @@ GUIDELINES:
         }
       },
     });
-
-    console.log("Streaming response started");
 
     return new Response(stream, {
       headers: {

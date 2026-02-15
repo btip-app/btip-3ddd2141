@@ -10,11 +10,11 @@ export function DashboardHeader() {
     <header className="h-12 border-b border-border bg-card flex items-center justify-between px-4 gap-4">
       <div className="flex items-center gap-4">
         <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
-        
+
         {/* Breadcrumb / Context */}
         <div className="hidden md:flex items-center gap-2 text-xs font-mono text-muted-foreground">
           <Terminal className="h-3 w-3" />
-          <span>btip://operations</span>
+          <span>bastion://operations</span>
         </div>
       </div>
 

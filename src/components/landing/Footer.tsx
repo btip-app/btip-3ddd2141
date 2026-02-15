@@ -9,14 +9,14 @@ const Footer = () => {
           {/* Brand */}
           <div>
             <Link to="/" className="flex items-center gap-2 mb-4">
-              <Shield className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold">BTIP</span>
+              <img src="/logo-full.png" alt="Bastion Intelligence" className="h-6 w-auto" />
+              <span className="text-xl font-bold">Bastion Intelligence</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Africa-native threat intelligence platform for modern security operations.
             </p>
           </div>
-          
+
           {/* Product */}
           <div>
             <h4 className="font-semibold mb-4">Product</h4>
@@ -26,7 +26,7 @@ const Footer = () => {
               <li><Link to="/v2#pillars" className="hover:text-foreground transition-colors">How It Works</Link></li>
             </ul>
           </div>
-          
+
           {/* Access */}
           <div>
             <h4 className="font-semibold mb-4">Access</h4>
@@ -36,7 +36,7 @@ const Footer = () => {
               <li><Link to="/v2" className="hover:text-foreground transition-colors">Overview</Link></li>
             </ul>
           </div>
-          
+
           {/* Legal */}
           <div>
             <h4 className="font-semibold mb-4">Legal</h4>
@@ -47,7 +47,7 @@ const Footer = () => {
             </ul>
           </div>
         </div>
-        
+
         <div className="pt-8 border-t border-border flex flex-col md:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Bastion Technologies. All rights reserved.

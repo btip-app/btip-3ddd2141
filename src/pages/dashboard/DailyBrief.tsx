@@ -770,7 +770,7 @@ export default function DailyBrief() {
       </Sheet>
 
       {/* DEBUG: Remove after fixing */}
-      <div className="p-4 bg-muted/20 border border-muted mt-8 rounded overflow-auto max-h-60 text-[10px] font-mono">
+      {/* <div className="p-4 bg-muted/20 border border-muted mt-8 rounded overflow-auto max-h-60 text-[10px] font-mono">
         <strong>DEBUG: Raw Incidents ({incidents.length})</strong>
         <pre>{JSON.stringify(incidents.slice(0, 5).map(i => ({ id: i.id, cat: i.category, sec: i.section, trend: i.trend, region: i.region })), null, 2)}</pre>
         <strong>TopThreats Filtered: {filteredTopThreats.length}</strong>
@@ -792,7 +792,7 @@ export default function DailyBrief() {
             Trigger Ingest Incidents
           </Button>
         </div>
-      </div>
+      </div> */}
     </div>
   );
 }

@@ -218,7 +218,7 @@ export default function IncidentReport() {
 
       {/* Print footer */}
       <div className="hidden print-only pb-4 border-t border-border pt-4 mt-8">
-        <div className="text-[9px] font-mono text-muted-foreground text-center">BTIP CONFIDENTIAL • Generated {new Date().toISOString()} • For authorized personnel only</div>
+        <div className="text-[9px] font-mono text-muted-foreground text-center">Bastion Intelligence CONFIDENTIAL • Generated {new Date().toISOString()} • For authorized personnel only</div>
       </div>
       <EscalateModal open={escalateOpen} onOpenChange={setEscalateOpen} incidentId={incident.id} incidentTitle={incident.title} />
     </div>

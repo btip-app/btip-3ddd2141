@@ -10,7 +10,7 @@ const FooterV2 = () => {
       <div className="container mx-auto px-6">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
           <span className="text-xs font-mono text-muted-foreground">
-            © {new Date().getFullYear()} <span className="acronym">BTIP</span>
+            © {new Date().getFullYear()} <span className="font-semibold">Bastion Intelligence</span>
           </span>
 
           <nav className="flex items-center gap-6">

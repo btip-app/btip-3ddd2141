@@ -80,7 +80,7 @@ export function ProfileDropdown() {
           onClick={() => navigate('/dashboard/brief')}
           className="text-xs font-mono cursor-pointer"
         >
-          <Shield className="h-3.5 w-3.5 mr-2" />
+          <img src="/logo-full.png" alt="Dashboard" className="h-3.5 w-auto mr-2 opacity-70" />
           Dashboard
         </DropdownMenuItem>
         <DropdownMenuSeparator />

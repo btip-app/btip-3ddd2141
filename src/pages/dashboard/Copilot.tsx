@@ -375,8 +375,8 @@ export default function Copilot() {
             <div ref={scrollRef} className="flex-1 overflow-auto p-4 space-y-4">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center">
-                  <Shield className="h-8 w-8 text-muted-foreground/30 mb-3" />
-                  <p className="text-xs font-mono text-muted-foreground mb-1">BTIP Copilot Ready</p>
+                  <img src="/logo-full.png" alt="Bastion Copilot" className="h-10 w-auto opacity-30 mb-3" />
+                  <p className="text-xs font-mono text-muted-foreground mb-1">Bastion Copilot Ready</p>
                   <p className="text-[10px] font-mono text-muted-foreground/60 mb-6 text-center max-w-sm">
                     Ask about threat assessments, asset risk levels, route safety, or regional security posture.
                   </p>
@@ -398,11 +398,10 @@ export default function Copilot() {
                 messages.map(msg => (
                   <div key={msg.id} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
                     <div
-                      className={`max-w-[85%] ${
-                        msg.role === "user"
+                      className={`max-w-[85%] ${msg.role === "user"
                           ? "bg-primary/10 border border-primary/20 rounded-lg rounded-br-sm"
                           : "bg-secondary/50 border border-border rounded-lg rounded-bl-sm cursor-pointer hover:border-primary/30 transition-colors"
-                      } px-3 py-2.5`}
+                        } px-3 py-2.5`}
                       onClick={() => msg.role === "assistant" && setSelectedMessage(msg)}
                     >
                       {/* Role indicator */}
@@ -652,13 +651,12 @@ export default function Copilot() {
                       </div>
                       <div className="p-3 rounded bg-secondary/30 border border-border space-y-2">
                         <div className="flex items-center gap-2">
-                          <Badge className={`${
-                            selectedMessage.response.forecast.direction === "escalating"
+                          <Badge className={`${selectedMessage.response.forecast.direction === "escalating"
                               ? "bg-destructive/20 text-destructive"
                               : selectedMessage.response.forecast.direction === "de-escalating"
-                              ? "bg-emerald-600/20 text-emerald-400"
-                              : "bg-muted text-muted-foreground"
-                          } text-[9px] font-mono px-1.5 py-0`}>
+                                ? "bg-emerald-600/20 text-emerald-400"
+                                : "bg-muted text-muted-foreground"
+                            } text-[9px] font-mono px-1.5 py-0`}>
                             {selectedMessage.response.forecast.direction === "escalating" ? "↑" : selectedMessage.response.forecast.direction === "de-escalating" ? "↓" : "→"} {selectedMessage.response.forecast.direction.toUpperCase()}
                           </Badge>
                           <span className="text-[9px] font-mono text-muted-foreground">

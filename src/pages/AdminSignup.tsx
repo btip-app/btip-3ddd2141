@@ -66,7 +66,7 @@ export default function AdminSignup() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
-            <Shield className="h-8 w-8 text-primary" />
+            <img src="/logo-full.png" alt="Bastion Intelligence" className="h-10 w-auto" />
             <span className="text-2xl font-mono font-bold acronym">Bastion Intelligence</span>
           </div>
           <h1 className="text-lg font-mono font-semibold text-foreground flex items-center justify-center gap-2">

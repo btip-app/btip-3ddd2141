@@ -29,7 +29,7 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="flex flex-col items-center justify-center min-h-[400px] gap-4 p-6">
-          <Shield className="h-8 w-8 text-muted-foreground/30" />
+          <img src="/logo-full.png" alt="Error" className="h-10 w-auto opacity-50 mb-2" />
           <div className="text-center space-y-1">
             <p className="text-xs font-mono font-bold text-foreground">MODULE ERROR</p>
             <p className="text-[10px] font-mono text-muted-foreground max-w-sm">
