@@ -36,6 +36,18 @@ const PLATFORM_META: Record<string, { label: string; icon: typeof MessageSquare;
 
 const SOCMINT_ANALYSTS = Object.keys(PLATFORM_META);
 
+const AFRICAN_REGIONS = ["west-africa", "east-africa", "southern-africa", "north-africa", "central-africa"];
+
+const REGION_FILTER_OPTIONS = [
+  { value: "africa", label: "Africa Only" },
+  { value: "all", label: "All Regions" },
+  { value: "west-africa", label: "West Africa" },
+  { value: "east-africa", label: "East Africa" },
+  { value: "north-africa", label: "North Africa" },
+  { value: "southern-africa", label: "Southern Africa" },
+  { value: "central-africa", label: "Central Africa" },
+];
+
 function getSeverityBadge(severity: number) {
   switch (severity) {
     case 5: return { label: "CRITICAL", className: "bg-destructive text-destructive-foreground" };
@@ -49,6 +61,7 @@ function getSeverityBadge(severity: number) {
 export default function Socmint() {
   const { incidents, loading } = useIncidents();
   const [platformFilter, setPlatformFilter] = useState("all");
+  const [regionFilter, setRegionFilter] = useState("africa");
   const [ipQuery, setIpQuery] = useState("");
   const [ipResults, setIpResults] = useState<any[]>([]);
   const [checkingIp, setCheckingIp] = useState(false);
@@ -91,11 +104,16 @@ export default function Socmint() {
     }
   }
 
-  // Filter to only SOCMINT-sourced incidents
-  const socmintIncidents = useMemo(
-    () => incidents.filter((i) => i.analyst && SOCMINT_ANALYSTS.includes(i.analyst)),
-    [incidents]
-  );
+  // Filter to only SOCMINT-sourced incidents + region filter
+  const socmintIncidents = useMemo(() => {
+    let filtered = incidents.filter((i) => i.analyst && SOCMINT_ANALYSTS.includes(i.analyst));
+    if (regionFilter === "africa") {
+      filtered = filtered.filter((i) => AFRICAN_REGIONS.includes(i.region));
+    } else if (regionFilter !== "all") {
+      filtered = filtered.filter((i) => i.region === regionFilter);
+    }
+    return filtered;
+  }, [incidents, regionFilter]);
 
   const filtered = useMemo(() => {
     if (platformFilter === "all") return socmintIncidents;
@@ -164,6 +182,18 @@ export default function Socmint() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Select value={regionFilter} onValueChange={setRegionFilter}>
+            <SelectTrigger className="w-[150px] h-7 text-[10px] font-mono bg-secondary border-border">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="bg-card border-border">
+              {REGION_FILTER_OPTIONS.map((opt) => (
+                <SelectItem key={opt.value} value={opt.value} className="text-[10px] font-mono">
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={platformFilter} onValueChange={setPlatformFilter}>
             <SelectTrigger className="w-[160px] h-7 text-[10px] font-mono bg-secondary border-border">
               <SelectValue />

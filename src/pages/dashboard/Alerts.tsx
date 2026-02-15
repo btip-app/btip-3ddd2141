@@ -117,6 +117,18 @@ const WATCHLIST_TYPE_ICON: Record<string, typeof MapPin> = {
   route: Route,
 };
 
+const AFRICAN_REGIONS = ["west-africa", "east-africa", "southern-africa", "north-africa", "central-africa"];
+
+const REGION_FILTER_OPTIONS = [
+  { value: "africa", label: "Africa Only" },
+  { value: "all", label: "All Regions" },
+  { value: "west-africa", label: "West Africa" },
+  { value: "east-africa", label: "East Africa" },
+  { value: "north-africa", label: "North Africa" },
+  { value: "southern-africa", label: "Southern Africa" },
+  { value: "central-africa", label: "Central Africa" },
+];
+
 // --- Component ---
 
 export default function Alerts() {
@@ -128,6 +140,7 @@ export default function Alerts() {
   const [statusOverrides, setStatusOverrides] = useState<Record<string, AlertStatus>>({});
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [regionFilter, setRegionFilter] = useState("africa");
   const [ingesting, setIngesting] = useState(false);
   const [ingestingReddit, setIngestingReddit] = useState(false);
   const [ingestingMeta, setIngestingMeta] = useState(false);
@@ -255,16 +268,25 @@ export default function Alerts() {
     }
   }
 
-  // Derive alerts from live incidents
+  // Filter incidents by region, then derive alerts
+  const regionFilteredIncidents = useMemo(() => {
+    if (regionFilter === "africa") {
+      return incidents.filter((i) => AFRICAN_REGIONS.includes(i.region));
+    } else if (regionFilter !== "all") {
+      return incidents.filter((i) => i.region === regionFilter);
+    }
+    return incidents;
+  }, [incidents, regionFilter]);
+
   const alerts = useMemo(() => {
-    return incidents.map(inc => {
+    return regionFilteredIncidents.map(inc => {
       const alert = mapIncidentToAlert(inc);
       if (statusOverrides[alert.id]) {
         alert.status = statusOverrides[alert.id];
       }
       return alert;
     });
-  }, [incidents, statusOverrides]);
+  }, [regionFilteredIncidents, statusOverrides]);
 
   // Build watchlist from monitored regions with incident counts
   const watchlist: WatchItem[] = useMemo(() => {
@@ -425,6 +447,21 @@ export default function Alerts() {
                     <SelectItem value="acknowledged" className="text-[10px] font-mono">Acknowledged</SelectItem>
                     <SelectItem value="muted" className="text-[10px] font-mono">Muted</SelectItem>
                     <SelectItem value="snoozed" className="text-[10px] font-mono">Snoozed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-muted-foreground">REGION:</span>
+                <Select value={regionFilter} onValueChange={setRegionFilter}>
+                  <SelectTrigger className="w-[150px] h-7 text-[10px] font-mono bg-secondary border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    {REGION_FILTER_OPTIONS.map((opt) => (
+                      <SelectItem key={opt.value} value={opt.value} className="text-[10px] font-mono">
+                        {opt.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
