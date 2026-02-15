@@ -58,6 +58,18 @@ const THREAT_TYPES = [
   { value: "natural-disaster", label: "Natural Disaster" },
 ];
 
+const AFRICAN_REGIONS = ["west-africa", "east-africa", "southern-africa", "north-africa", "central-africa", "sub-saharan-africa", "horn-of-africa", "sahel"];
+
+const REGION_FILTER_OPTIONS = [
+  { value: "africa", label: "Africa Only" },
+  { value: "all", label: "All Regions" },
+  { value: "west-africa", label: "West Africa" },
+  { value: "east-africa", label: "East Africa" },
+  { value: "north-africa", label: "North Africa" },
+  { value: "southern-africa", label: "Southern Africa" },
+  { value: "central-africa", label: "Central Africa" },
+];
+
 const TIME_WINDOWS = [
   { value: "24h", label: "Last 24 Hours" },
   { value: "48h", label: "Last 48 Hours" },
@@ -158,6 +170,7 @@ export default function ThreatMap() {
   const [timeWindow, setTimeWindow] = useState("30d");
   const [severityRange, setSeverityRange] = useState([1, 5]);
   const [confidenceRange, setConfidenceRange] = useState([0, 100]);
+  const [regionFilter, setRegionFilter] = useState("africa");
 
   const [viewState, setViewState] = useState({
     latitude: 9.0820,
@@ -165,7 +178,17 @@ export default function ThreatMap() {
     zoom: 5.5,
   });
 
-  const allMarkers = useMemo(() => incidents.map(incidentToMarker).filter(Boolean) as MarkerData[], [incidents]);
+  // Filter incidents by region first
+  const regionFilteredIncidents = useMemo(() => {
+    if (regionFilter === "africa") {
+      return incidents.filter((i) => AFRICAN_REGIONS.includes(i.region));
+    } else if (regionFilter !== "all") {
+      return incidents.filter((i) => i.region === regionFilter);
+    }
+    return incidents;
+  }, [incidents, regionFilter]);
+
+  const allMarkers = useMemo(() => regionFilteredIncidents.map(incidentToMarker).filter(Boolean) as MarkerData[], [regionFilteredIncidents]);
 
   // GeoJSON for incident heatmap
   const heatmapGeoJSON = useMemo(() => ({
@@ -295,6 +318,20 @@ export default function ThreatMap() {
           <div className="flex items-center gap-2">
             <Filter className="h-3 w-3 text-muted-foreground" />
             <span className="text-[10px] font-mono text-muted-foreground">FILTERS:</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-muted-foreground">REGION:</span>
+            <Select value={regionFilter} onValueChange={setRegionFilter}>
+              <SelectTrigger className="w-[150px] h-7 text-[10px] font-mono bg-secondary border-border">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-card border-border z-50">
+                {REGION_FILTER_OPTIONS.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-[10px] font-mono">{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
