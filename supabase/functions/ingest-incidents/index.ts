@@ -57,7 +57,7 @@ async function stageAndNormalize(
 
   for (let i = 0; i < rawRows.length; i++) {
     const key = `${extractedIncidents[i].title || ""}|${extractedIncidents[i].datetime || ""}|${extractedIncidents[i].location || ""}`;
-    rawRows[i].content_hash = await contentHash(key);
+    (rawRows[i] as any).content_hash = await contentHash(key);
   }
 
   const hashes = rawRows.map(r => r.content_hash);
